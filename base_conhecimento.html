@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<script src="acesso.js"></script>
+<!--
+CRÉDITOS E FONTES
+- Conteúdo da solução: Documento do Grupo 2, «Integração de IA em Call Centers, em Contexto Bancário» (TAIA, ISCTE, 2026/2027): ciclo da base de conhecimento, marcação «Requer Revisão» pela IA, validação humana, vertentes funcional e técnica. A meta de 85 % no top-3 é uma proposta do grupo.
+- Referencial ITIL: Prática de gestão do conhecimento: PeopleCert (2026, 27 de fevereiro). ITIL (Version 5): Built for the AI and Cloud Era. https://www.itil.com/Itil-News-and-Announcements/itil-version-5-ai-cloud-era
+- Conceito de recuperação (RAG): Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., Küttler, H., Lewis, M., Yih, W., Rocktäschel, T., Riedel, S., & Kiela, D. (2020). Retrieval-augmented generation for knowledge-intensive NLP tasks. Advances in Neural Information Processing Systems, 33.
+- Narração e legendas: Voz: síntese de voz do macOS (voz Joana, pt-PT). Textos das legendas escritos com o Claude.
+- Desenvolvimento: Textos e código gerados com o Claude (Anthropic, modelo Sonnet 5.5), através do Claude Code, e revistos pelo grupo.
+- Dados: Todos os dados, clientes, tickets e artigos são fictícios. As simulações usam valores aleatórios e não são resultados nem previsões.
+- Técnica: Sem bibliotecas externas. Letras do sistema e ícones em emojis do sistema.
+-->
+
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Base de Conhecimento</title>
+<style>
+:root{
+  --bg:#f5f7fb; --card:#ffffff; --ink:#14213d; --muted:#5b6784; --line:#d6dcea;
+  --brand:#1b4fd8; --brand-soft:#e4ebff; --ok:#14804a; --ok-soft:#dff5e8;
+  --warn:#b45309; --warn-soft:#fff1d6; --bad:#b42318; --bad-soft:#fde4e1; --ai:#7a3cff; --ai-soft:#efe6ff;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.5 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header{padding:28px 6vw 8px}
+h1{margin:0 0 6px;font-size:clamp(28px,4vw,44px)}
+header p{margin:0;color:var(--muted);max-width:70ch}
+main{padding:12px 6vw 60px;display:grid;gap:28px}
+section{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:24px}
+h2{margin:0 0 4px;font-size:clamp(22px,2.6vw,30px)}
+.sub{color:var(--muted);margin:0 0 18px}
+button{font:inherit;cursor:pointer;border:1px solid var(--brand);background:var(--brand);color:#fff;border-radius:12px;padding:10px 18px}
+button.ghost{background:#fff;color:var(--brand)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #ffb703;outline-offset:2px}
+.tag{display:inline-block;font-size:14px;border-radius:999px;padding:2px 10px;font-weight:600}
+.tag.ai{background:var(--ai-soft);color:var(--ai)} .tag.warn{background:var(--warn-soft);color:var(--warn)}
+.tag.ok{background:var(--ok-soft);color:var(--ok)} .tag.blue{background:var(--brand-soft);color:var(--brand)}
+/* ciclo */
+.track{position:relative;display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin:8px 0 18px;padding-top:34px}
+.token{position:absolute;top:0;left:10%;width:28px;height:28px;margin-left:-14px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:15px;transition:left .8s cubic-bezier(.4,.1,.2,1);box-shadow:0 0 0 6px var(--brand-soft)}
+.stage{position:relative;text-align:left;background:#fff;color:var(--ink);border:2px solid var(--line);border-radius:16px;padding:14px;transition:all .4s}
+.stage .n{font-size:14px;color:var(--muted)} .stage .t{font-weight:700;font-size:19px} .stage .i{font-size:30px}
+.stage.active{border-color:var(--brand);background:var(--brand-soft);transform:translateY(-4px)}
+.stage.done{border-color:var(--ok)}
+.stage:not(:last-child)::after{content:"";position:absolute;right:-14px;top:50%;width:14px;height:3px;background:repeating-linear-gradient(90deg,var(--brand) 0 4px,transparent 4px 8px);animation:flow 1s linear infinite}
+@keyframes flow{to{background-position:8px 0}}
+.detail{min-height:96px;background:var(--bg);border-radius:14px;padding:14px 18px;border-left:6px solid var(--brand)}
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center}
+.loopnote{font-size:15px;color:var(--muted)}
+/* laboratório */
+.lab{display:grid;grid-template-columns:1fr 1.2fr;gap:20px}
+@media(max-width:900px){.lab,.track{grid-template-columns:1fr}.stage:not(:last-child)::after{display:none}.token{display:none}}
+.tickets{display:grid;gap:10px}
+.ticket{text-align:left;background:#fff;color:var(--ink);border:2px solid var(--line);padding:12px}
+.ticket.sel{border-color:var(--ai);background:var(--ai-soft)} .ticket small{color:var(--muted)}
+.draft{border:2px dashed var(--ai);border-radius:14px;padding:14px;min-height:150px;background:#fff}
+.draft h3{margin:0 0 6px;font-size:20px}
+.draft pre{white-space:pre-wrap;font:inherit;margin:8px 0 0}
+.checks{display:grid;gap:6px;margin:12px 0}
+.checks label{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:#fff}
+.checks label.missing{border-color:var(--bad);background:var(--bad-soft)}
+.checks input{width:20px;height:20px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+select,input[type=text]{font:inherit;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--ink)}
+input[type=text]{flex:1;min-width:220px}
+.shake{animation:shake .4s}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.msg{min-height:26px;margin-top:8px;font-weight:600}
+.msg.bad{color:var(--bad)} .msg.ok{color:var(--ok)}
+.kb{display:grid;gap:8px;margin-top:10px}
+.art{display:flex;justify-content:space-between;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fff;animation:pop .5s}
+@keyframes pop{from{transform:scale(.92);opacity:0}to{transform:none;opacity:1}}
+.art.hit{border-color:var(--ok);background:var(--ok-soft)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.chip{background:#fff;color:var(--brand);border:1px solid var(--brand);padding:6px 12px;font-size:16px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:900px){.cols{grid-template-columns:1fr}}
+.cap{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);width:min(900px,92vw);background:rgba(20,33,61,.95);color:#fff;border-radius:14px;padding:12px 18px;font-size:20px;line-height:1.4;z-index:10;text-align:center}
+.cap[hidden]{display:none}
+.counter{font-size:34px;font-weight:800;color:var(--warn)}
+.queue li{margin:4px 0}
+footer{padding:0 6vw 40px;color:var(--muted);font-size:15px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.cr{max-width:1100px;margin:30px auto 90px;padding:0 5vw;color:#667085;font:15px/1.5 -apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.cr summary{cursor:pointer;font-weight:700;color:#101828;padding:10px 0}
+.cr dl{display:grid;grid-template-columns:230px 1fr;gap:8px 18px;margin:8px 0}
+.cr dt{font-weight:700;color:#101828}.cr dd{margin:0}
+@media(max-width:700px){.cr dl{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Como se constrói a base de conhecimento</h1>
+  <p>Do procedimento interno ao artigo publicado, e do artigo de volta à melhoria. Clica, experimenta e vê o que acontece quando falta uma validação.</p>
+  <div class="row" style="margin-top:12px"><button class="ghost" id="narr" aria-pressed="false">🔊 Narração: desligada</button></div>
+</header>
+<div class="cap" id="cap" hidden role="status" aria-live="polite"></div>
+
+<main>
+<section aria-labelledby="h-ciclo">
+  <h2 id="h-ciclo">1. O ciclo da base de conhecimento</h2>
+  <p class="sub">Cinco etapas, em ciclo contínuo. Carrega numa etapa ou deixa correr.</p>
+  <div class="track" id="track">
+    <div class="token" id="token" aria-hidden="true">●</div>
+  </div>
+  <div class="detail" id="detail" aria-live="polite"></div>
+  <div class="controls">
+    <button class="ghost" id="prev">◀ Anterior</button>
+    <button id="play">▶ Reproduzir</button>
+    <button class="ghost" id="next">Seguinte ▶</button>
+    <span class="loopnote">↻ Na etapa 5, as lacunas voltam à etapa 2: o ciclo nunca fecha.</span>
+  </div>
+</section>
+
+<section aria-labelledby="h-lab">
+  <h2 id="h-lab">2. Laboratório: transformar um ticket num artigo</h2>
+  <p class="sub">Exemplos fictícios, para demonstração. A IA propõe, mas só uma pessoa publica.</p>
+  <div class="lab">
+    <div>
+      <strong>Tickets resolvidos</strong>
+      <div class="tickets" id="tickets" style="margin-top:8px"></div>
+    </div>
+    <div>
+      <div class="draft" id="draft"><em>Escolhe um ticket para a IA propor um rascunho.</em></div>
+      <div class="checks" id="checks" aria-label="Lista de validação humana"></div>
+      <div class="row">
+        <label for="vert"><strong>Vertente:</strong></label>
+        <select id="vert"><option value="">Escolher…</option><option value="funcional">Funcional (agente virtual e 1.ª linha)</option><option value="técnica">Técnica (2.ª e 3.ª linha)</option></select>
+        <button id="pub" disabled>Publicar artigo</button>
+      </div>
+      <div class="msg" id="labmsg" role="status" aria-live="polite"></div>
+    </div>
+  </div>
+  <h3 style="margin:18px 0 4px">Base de conhecimento publicada</h3>
+  <div class="kb" id="kb"></div>
+</section>
+
+<section aria-labelledby="h-search">
+  <h2 id="h-search">3. O agente virtual vai buscar a resposta</h2>
+  <p class="sub">Pesquisa na base de conhecimento. Se não existir artigo, a lacuna é registada e volta ao ciclo.</p>
+  <div class="row">
+    <input type="text" id="q" placeholder="Ex.: o cartão ficou bloqueado" aria-label="Pergunta do cliente">
+    <button id="go">Pesquisar</button>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="cols">
+    <div><strong>Resultados (até 3)</strong><div class="kb" id="res" aria-live="polite"></div></div>
+    <div>
+      <strong>Lacunas detetadas</strong>
+      <div class="counter" id="gaps">0</div>
+      <ul class="queue" id="queue"></ul>
+      <span class="tag warn">Requer Revisão</span> <span class="loopnote">Cada lacuna é um candidato a novo artigo.</span>
+    </div>
+  </div>
+  <p class="loopnote" style="margin-top:14px">Meta proposta pelo grupo para a qualidade da pesquisa: o artigo correto entre os 3 primeiros resultados em pelo menos 85 % de um conjunto de teste. É uma meta, e não um resultado.</p>
+</section>
+</main>
+<footer>Material de apoio à apresentação. Todos os artigos, tickets e dados são fictícios e servem só para demonstrar o funcionamento.</footer>
+
+<section class="cr" aria-label="Créditos e fontes">
+  <details>
+  <summary>Créditos e fontes</summary>
+  <dl>
+    <dt>Conteúdo da solução</dt><dd>Documento do Grupo 2, «Integração de IA em Call Centers, em Contexto Bancário» (TAIA, ISCTE, 2026/2027): ciclo da base de conhecimento, marcação «Requer Revisão» pela IA, validação humana, vertentes funcional e técnica. A meta de 85 % no top-3 é uma proposta do grupo.</dd>
+    <dt>Referencial ITIL</dt><dd>Prática de gestão do conhecimento: PeopleCert (2026, 27 de fevereiro). ITIL (Version 5): Built for the AI and Cloud Era. https://www.itil.com/Itil-News-and-Announcements/itil-version-5-ai-cloud-era</dd>
+    <dt>Conceito de recuperação (RAG)</dt><dd>Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., Küttler, H., Lewis, M., Yih, W., Rocktäschel, T., Riedel, S., &amp; Kiela, D. (2020). Retrieval-augmented generation for knowledge-intensive NLP tasks. Advances in Neural Information Processing Systems, 33.</dd>
+    <dt>Narração e legendas</dt><dd>Voz: síntese de voz do macOS (voz Joana, pt-PT). Textos das legendas escritos com o Claude.</dd>
+    <dt>Desenvolvimento</dt><dd>Textos e código gerados com o Claude (Anthropic, modelo Sonnet 5.5), através do Claude Code, e revistos pelo grupo.</dd>
+    <dt>Dados</dt><dd>Todos os dados, clientes, tickets e artigos são fictícios. As simulações usam valores aleatórios e não são resultados nem previsões.</dd>
+    <dt>Técnica</dt><dd>Sem bibliotecas externas. Letras do sistema e ícones em emojis do sistema.</dd>
+  </dl>
+  </details>
+</section>
+<script>
+const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = id => document.getElementById(id);
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+
+/* ---------- 1. ciclo ---------- */
+const stages = [
+  {i:'📚', t:'Fontes', d:'A base é construída a partir dos procedimentos internos da organização, do catálogo de serviços e do histórico de tickets registados.'},
+  {i:'🤖', t:'IA deteta', d:'A IA identifica potenciais novos artigos e marca-os com a flag «Requer Revisão», com um comentário do que sugere adicionar ou alterar.'},
+  {i:'✅', t:'Validação humana', d:'Nenhum artigo é publicado sem validação humana. Cada artigo tem dono, fonte, versão e validade definidos.'},
+  {i:'🗂️', t:'Publicação', d:'Duas vertentes: a funcional, para o agente virtual e a 1.ª linha, e a técnica, com procedimentos detalhados para a 2.ª e 3.ª linha.'},
+  {i:'📈', t:'Utilização e melhoria', d:'O agente virtual consulta os artigos. O feedback, as pesquisas sem resultado e os dashboards revelam lacunas, que voltam à etapa 2.'}
+];
+/* ---------- narração (voz gravada em audio/kb + legendas) ---------- */
+const NARR = {
+  intro: 'Vamos ver como se constrói a base de conhecimento do agente virtual: do procedimento interno ao artigo publicado, e do artigo de volta à melhoria.',
+  s1: 'Primeira etapa, as fontes. A base é construída a partir dos procedimentos internos, do catálogo de serviços e do histórico de tickets.',
+  s2: 'Segunda etapa. A inteligência artificial identifica possíveis novos artigos e marca-os com a indicação requer revisão, com um comentário do que sugere acrescentar ou alterar.',
+  s3: 'Terceira etapa, a validação humana. Nenhum artigo é publicado sem a validação de uma pessoa. Cada artigo tem dono, fonte, versão e validade.',
+  s4: 'Quarta etapa, a publicação, em duas vertentes. A funcional, para o agente virtual e a primeira linha, e a técnica, para a segunda e a terceira linha.',
+  s5: 'Quinta etapa, utilização e melhoria. O agente virtual consulta os artigos. O feedback e as pesquisas sem resultado revelam lacunas, que voltam à segunda etapa, e o ciclo continua.',
+  lab_pick: 'A inteligência artificial leu o ticket e propôs um rascunho de artigo, marcado como requer revisão. Falta a validação humana.',
+  lab_blocked: 'O artigo não pode ser publicado enquanto faltar alguma validação. É assim que se evita publicar conteúdo sem dono, sem fonte ou desatualizado.',
+  lab_ok: 'Artigo publicado. A partir de agora, o agente virtual já o pode usar nas respostas.',
+  hit: 'O agente virtual encontrou artigos validados e responde com base neles, indicando a fonte.',
+  gap: 'Não existe artigo para esta pergunta. O agente virtual não inventa a resposta: encaminha para uma pessoa, e a lacuna fica registada para voltar ao ciclo.'
+};
+let narrOn = false, curAudio = null, curDone = null, playing = false, loopId = 0;
+const cap = $('cap');
+function stopNarr(){
+  if (curAudio){ curAudio.pause(); curAudio = null; }
+  if (curDone){ const d = curDone; curDone = null; d(); }
+  cap.hidden = true;
+}
+function say(id, ms){
+  stopNarr();
+  const text = NARR[id];
+  if (!narrOn || !text) return new Promise(r => setTimeout(r, reduce ? 0 : ms));
+  cap.textContent = text; cap.hidden = false;
+  return new Promise(res => {
+    const a = new Audio('audio/kb/' + id + '.m4a'); curAudio = a;
+    let fin = false, tm = null;
+    const done = () => { if (fin) return; fin = true; clearTimeout(tm); if (curDone === done) curDone = null; setTimeout(res, reduce ? 0 : 350); };
+    curDone = done;
+    const fall = Math.max(2500, text.length * 60);
+    tm = setTimeout(done, 60000);
+    a.addEventListener('ended', done);
+    a.addEventListener('error', () => setTimeout(done, fall));
+    a.play().catch(() => setTimeout(done, fall));
+  });
+}
+$('narr').addEventListener('click', e => {
+  narrOn = !narrOn; e.currentTarget.setAttribute('aria-pressed', narrOn);
+  e.currentTarget.textContent = '🔊 Narração: ' + (narrOn ? 'ligada' : 'desligada');
+  if (narrOn) say('intro', 0); else stopNarr();
+});
+
+/* ---------- 1. ciclo ---------- */
+let cur = 0;
+const track = $('track');
+stages.forEach((s, k) => {
+  const b = document.createElement('button');
+  b.className = 'stage'; b.type = 'button';
+  b.innerHTML = `<div class="i">${s.i}</div><div class="n">Etapa ${k+1}</div><div class="t">${s.t}</div>`;
+  b.addEventListener('click', () => { stop(); setStage(k); say('s' + (cur + 1), 0); });
+  track.appendChild(b);
+});
+function setStage(k){
+  cur = (k + stages.length) % stages.length;
+  [...track.querySelectorAll('.stage')].forEach((el, j) => {
+    el.classList.toggle('active', j === cur);
+    el.classList.toggle('done', j < cur);
+  });
+  $('token').style.left = ((cur + 0.5) * 20) + '%';
+  $('detail').innerHTML = `<strong>${cur+1}. ${stages[cur].t}</strong><br>${stages[cur].d}`;
+}
+async function play(){
+  playing = true; const me = ++loopId; $('play').textContent = '⏸ Pausar';
+  while (playing && me === loopId){
+    await say('s' + (cur + 1), 4000);
+    if (!playing || me !== loopId) break;
+    setStage(cur + 1);
+  }
+}
+function stop(){ playing = false; loopId++; stopNarr(); $('play').textContent = '▶ Reproduzir'; }
+$('play').addEventListener('click', () => playing ? stop() : play());
+$('prev').addEventListener('click', () => { stop(); setStage(cur - 1); say('s' + (cur + 1), 0); });
+$('next').addEventListener('click', () => { stop(); setStage(cur + 1); say('s' + (cur + 1), 0); });
+setStage(0);
+
+/* ---------- 2. laboratório ---------- */
+const tk = [
+  {id:'T-101', t:'Cliente não consegue entrar no homebanking depois de trocar de telemóvel',
+   art:'Reativar o acesso ao homebanking num novo dispositivo', v:'funcional',
+   key:['homebanking','acesso','entrar','telemovel','dispositivo','novo','reativar','login'],
+   txt:'Passos sugeridos pela IA (a validar):\n1. Confirmar a identidade do cliente.\n2. Guiar o registo do novo dispositivo.\n3. Se falhar, abrir pedido à equipa de acessos.',
+   com:'Comentário da IA: este problema repete-se em vários tickets e não existe artigo; sugere criar um.'},
+  {id:'T-102', t:'Cartão bloqueado depois de três tentativas de PIN erradas',
+   art:'Desbloquear um cartão após PIN errado', v:'funcional',
+   key:['cartao','multibanco','pin','bloqueado','desbloquear','errado'],
+   txt:'Passos sugeridos pela IA (a validar):\n1. Confirmar a identidade e o cartão.\n2. Explicar o prazo e o canal de desbloqueio.\n3. Se houver suspeita de fraude, escalar de imediato.',
+   com:'Comentário da IA: pedido frequente e de baixo risco; sugere artigo funcional com aviso de escalamento por fraude.'},
+  {id:'T-103', t:'Falha intermitente na sincronização de saldos entre a aplicação e o sistema central',
+   art:'Diagnóstico de falha de sincronização de saldos', v:'técnica',
+   key:['saldo','saldos','sincronizacao','app','core','falha','diagnostico'],
+   txt:'Procedimento técnico sugerido pela IA (a validar):\n1. Verificar o estado das filas de integração.\n2. Comparar os saldos nos dois sistemas.\n3. Registar o problema e o change request, se necessário.',
+   com:'Comentário da IA: conhecimento útil só para a 2.ª e 3.ª linha; sugere artigo técnico.'}
+];
+const items = ['Dono atribuído','Fonte indicada','Versão registada','Data de validade definida','Sem dados pessoais do cliente'];
+const kb = [
+  {t:'Horários e contactos da agência', v:'funcional', key:['horario','horarios','agencia','abre','fecha','contacto','contactos','telefone'], fonte:'Procedimento interno'},
+  {t:'Pedir segunda via de extrato', v:'funcional', key:['extrato','segunda','via','pedir','documento'], fonte:'Catálogo de serviços'},
+  {t:'Atualização de dados pessoais', v:'funcional', key:['atualizar','dados','morada','telemovel','email','pessoais'], fonte:'Catálogo de serviços'}
+];
+let sel = null, typing = null;
+const tbox = $('tickets');
+tk.forEach((x, k) => {
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'ticket';
+  b.innerHTML = `<strong>${x.id}</strong> · ${x.t}<br><small>Resolvido</small>`;
+  b.addEventListener('click', () => pick(k, b)); tbox.appendChild(b);
+});
+const cbox = $('checks');
+items.forEach((s, k) => {
+  const l = document.createElement('label'); l.innerHTML = `<input type="checkbox" data-k="${k}"> ${s}`;
+  cbox.appendChild(l);
+});
+function typeInto(el, text){
+  clearInterval(typing);
+  if (reduce){ el.textContent = text; return; }
+  el.textContent = ''; let p = 0;
+  typing = setInterval(() => { el.textContent = text.slice(0, ++p); if (p >= text.length) clearInterval(typing); }, 14);
+}
+function pick(k, btn){
+  sel = k;
+  [...tbox.children].forEach(c => c.classList.toggle('sel', c === btn));
+  const x = tk[k];
+  $('draft').innerHTML = `<span class="tag ai">🤖 Proposto pela IA</span> <span class="tag warn">Requer Revisão</span><h3>${x.art}</h3><div class="loopnote">${x.com}</div><pre id="pre"></pre>`;
+  typeInto($('pre'), x.txt);
+  cbox.querySelectorAll('input').forEach(i => { i.checked = false; i.parentElement.classList.remove('missing'); });
+  $('vert').value = ''; $('pub').disabled = false; setMsg('', '');
+  say('lab_pick', 0);
+}
+function setMsg(t, c){ const m = $('labmsg'); m.textContent = t; m.className = 'msg ' + c; }
+function renderKb(el, list, hit){
+  el.innerHTML = '';
+  list.forEach(a => {
+    const d = document.createElement('div'); d.className = 'art' + (hit ? ' hit' : '');
+    d.innerHTML = `<span><strong>${a.t}</strong><br><small>Fonte: ${a.fonte}${a.ver ? ' · ' + a.ver : ''}</small></span><span class="tag ${a.v === 'técnica' ? 'warn' : 'blue'}">${a.v}</span>`;
+    el.appendChild(d);
+  });
+}
+renderKb($('kb'), kb, false);
+$('pub').addEventListener('click', () => {
+  if (sel === null) return;
+  const x = tk[sel];
+  const miss = [];
+  cbox.querySelectorAll('input').forEach(i => { const bad = !i.checked; i.parentElement.classList.toggle('missing', bad); if (bad) miss.push(items[+i.dataset.k]); });
+  const vert = $('vert').value;
+  if (!vert) miss.push('Escolher a vertente');
+  if (miss.length){
+    setMsg('Não pode ser publicado. Falta: ' + miss.join('; ') + '.', 'bad');
+    $('pub').classList.remove('shake'); void $('pub').offsetWidth; $('pub').classList.add('shake'); say('lab_blocked', 0); return;
+  }
+  if (kb.some(a => a.t === x.art)){ setMsg('Este artigo já está publicado.', 'bad'); return; }
+  kb.push({t:x.art, v:vert, key:x.key, fonte:'Ticket ' + x.id, ver:'v1.0'});
+  renderKb($('kb'), kb, false);
+  setMsg('Artigo publicado na vertente ' + vert + '. Já está disponível para o agente virtual.', 'ok');
+  say('lab_ok', 0);
+});
+
+/* ---------- 3. pesquisa ---------- */
+const gaps = [];
+const chips = ['Qual é o horário da agência?', 'O cartão ficou bloqueado', 'Não consigo entrar no homebanking', 'Preciso da segunda via do extrato'];
+chips.forEach(c => { const b = document.createElement('button'); b.className = 'chip'; b.type = 'button'; b.textContent = c;
+  b.addEventListener('click', () => { $('q').value = c; search(); }); $('chips').appendChild(b); });
+function search(){
+  const q = $('q').value.trim(); if (!q) return;
+  const toks = norm(q).split(/[^a-z0-9]+/).filter(w => w.length > 2);
+  const scored = kb.map(a => ({a, s: a.key.filter(k => toks.includes(k)).length})).filter(r => r.s > 0).sort((x, y) => y.s - x.s).slice(0, 3);
+  const res = $('res');
+  if (scored.length){ renderKb(res, scored.map(r => r.a), true); say('hit', 0); }
+  else {
+    say('gap', 0);
+    res.innerHTML = '<div class="art" style="border-color:var(--bad);background:var(--bad-soft)"><span><strong>Sem artigo para esta pergunta.</strong><br><small>O agente virtual não inventa: encaminha para uma pessoa.</small></span></div>';
+    if (!gaps.includes(q)){ gaps.push(q); $('gaps').textContent = gaps.length;
+      const li = document.createElement('li'); li.innerHTML = `${q} <span class="tag warn">Requer Revisão</span>`; $('queue').appendChild(li); }
+  }
+}
+$('go').addEventListener('click', search);
+$('q').addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
+</script>
+</body>
+</html>

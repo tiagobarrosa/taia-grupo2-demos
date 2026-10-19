@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<script src="acesso.js"></script>
+<!--
+CRÉDITOS E FONTES
+- Conteúdo da solução: Documento do Grupo 2, «Integração de IA em Call Centers, em Contexto Bancário» (TAIA, ISCTE, 2026/2027): fluxo do atendimento, ticket preenchido pela IA, base de conhecimento, escalamento, notificações P1 a P4, Major Incident, questionário de 1 a 5 e a meta de cerca de 70/30.
+- Matriz de prioridade: Impacto × urgência: Trabalho 1 do grupo, «Priorização de Incidentes de IT num Contexto Bancário» (B. Ferreira e J. Pereira, 27/09/2026).
+- Referencial ITIL: Incidentes, problemas e mudanças; gestão do conhecimento: PeopleCert (s.d.). ITIL Foundation (Version 5): What's new guide. https://www.itil.com/Itil-News-and-Announcements/itil-version-5-foundation-whats-new-guide · PeopleCert (2026, 27 de fevereiro). ITIL (Version 5): Built for the AI and Cloud Era. https://www.itil.com/Itil-News-and-Announcements/itil-version-5-ai-cloud-era
+- Conceito de recuperação (RAG): Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., Küttler, H., Lewis, M., Yih, W., Rocktäschel, T., Riedel, S., & Kiela, D. (2020). Retrieval-augmented generation for knowledge-intensive NLP tasks. Advances in Neural Information Processing Systems, 33.
+- Exemplos e regras: Clientes, tickets, regra de risco (fraude) e valores dos gráficos: ilustrativos, criados com o Claude.
+- Layout: Estilo de apresentação inspirado no Figma. Não foi criado no Figma.
+- Desenvolvimento: Textos e código gerados com o Claude (Anthropic, modelo Sonnet 5.5), através do Claude Code, e revistos pelo grupo.
+- Dados: Todos os dados, clientes, tickets e artigos são fictícios. As simulações usam valores aleatórios e não são resultados nem previsões.
+- Técnica: Sem bibliotecas externas. Letras do sistema e ícones em emojis do sistema.
+-->
+
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboards e fluxo de atendimento</title>
+<style>
+:root{
+  --bg:#e9ebf1; --card:#ffffff; --ink:#101828; --muted:#667085; --line:#e4e7ee; --soft:#f6f7fb;
+  --brand:#2457f5; --brand2:#7a3cff; --ok:#12a150; --warn:#e08a00; --bad:#e0412f;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{color:var(--ink);font:16px/1.45 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden;
+  background-color:var(--bg);background-image:radial-gradient(#cfd3dd 1.2px,transparent 1.2px);background-size:24px 24px}
+button{font:inherit;cursor:pointer;border:0;border-radius:999px;padding:9px 18px;transition:transform .15s,box-shadow .2s,background .2s;color:var(--ink);background:#fff;box-shadow:inset 0 0 0 1.5px var(--line)}
+button:hover:not(:disabled){transform:translateY(-1px)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #ffb703;outline-offset:2px}
+button.pri{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;box-shadow:0 6px 16px rgba(36,87,245,.3)}
+button.on,button[aria-pressed="true"]{background:#eef2ff;color:var(--brand);box-shadow:inset 0 0 0 2px var(--brand)}
+/* barra */
+#bar{position:fixed;left:0;right:0;top:0;height:56px;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 20px;box-shadow:0 1px 0 var(--line);z-index:20}
+#bar .l{display:flex;gap:12px;align-items:center;font-weight:700}
+#bar .logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--brand),var(--brand2))}
+#bar .name{color:var(--muted);font-weight:500}
+#bar .r{display:flex;gap:8px}
+#stage{position:absolute;left:0;right:0;top:56px;bottom:0;overflow:auto}
+#stage.present{overflow:hidden}
+#dots{position:fixed;left:0;right:0;bottom:14px;display:none;justify-content:center;gap:8px;z-index:20}
+#dots i{width:10px;height:10px;border-radius:50%;background:#b8bdcc;display:block;cursor:pointer}
+#dots i.on{background:var(--brand);width:28px;border-radius:6px}
+body.pm #dots{display:flex}
+#hint{position:fixed;right:20px;bottom:14px;color:var(--muted);font-size:14px;display:none;z-index:20}
+body.pm #hint{display:block}
+.slot{position:absolute}
+.slot .lbl{position:absolute;left:2px;top:-24px;font-size:14px;color:var(--muted);font-weight:600;white-space:nowrap}
+body:not(.pm) .slot{cursor:pointer}
+body:not(.pm) .slot .frame{pointer-events:none}
+.frame{position:absolute;left:0;top:0;width:1280px;height:720px;background:#fff;border-radius:22px;overflow:hidden;transform-origin:0 0;padding:40px 52px;box-shadow:0 18px 50px rgba(16,24,40,.14)}
+/* conteúdo dos quadros */
+.fh{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}
+.fk{font-size:13px;font-weight:700;letter-spacing:.08em;color:var(--brand2)}
+.fh h1{margin:2px 0 0;font-size:34px;letter-spacing:-.02em;line-height:1.1}
+.badge{background:#fff3d6;color:#8a5200;border-radius:999px;padding:5px 14px;font-weight:700;font-size:13px;white-space:nowrap}
+.chip{display:inline-block;padding:2px 12px;border-radius:999px;font-weight:700;font-size:13px;background:var(--line);white-space:nowrap}
+.p1{background:#fbd3cd}.p2{background:#ffe0b3}.p3{background:#fff0b3}.p4{background:#d3f0dc}
+.chip.ok{background:#d3f0dc;color:#0b6b36}.chip.warn{background:#ffe9c2;color:#8a5200}.chip.bad{background:#fbd3cd;color:#a02214}.chip.blue{background:#e4ebff;color:var(--brand)}.chip.ai{background:#efe9ff;color:#4b1fb8}
+.card{background:#fff;border-radius:20px;box-shadow:inset 0 0 0 1.5px var(--line);padding:16px 18px}
+.card h3{margin:0 0 10px;font-size:15px;color:var(--muted);font-weight:700;letter-spacing:.02em}
+.muted{color:var(--muted)}
+/* capa */
+#f1{background:linear-gradient(135deg,#2457f5,#7a3cff);color:#fff;display:flex;flex-direction:column;justify-content:center;padding:80px}
+#f1 h1{font-size:62px;letter-spacing:-.03em;line-height:1.05;margin:0 0 22px;max-width:900px}
+#f1 p{font-size:24px;opacity:.9;max-width:760px;margin:0 0 34px}
+#f1 .badge{align-self:flex-start;background:rgba(255,255,255,.2);color:#fff}
+/* operador */
+.op{display:grid;grid-template-columns:290px 1fr 320px;gap:18px;height:546px}
+.qi{display:block;width:100%;text-align:left;border-radius:16px;padding:12px 14px;margin-bottom:10px;background:var(--soft);box-shadow:none;border:2px solid transparent}
+.qi.sel{background:#eef2ff;border-color:var(--brand)}
+.qi b{display:block;font-size:15px}.qi small{color:var(--muted);display:block;margin:2px 0 6px}
+.chat{display:flex;flex-direction:column;min-height:0}
+.msgs{flex:1;overflow:auto;display:flex;flex-direction:column;gap:8px;min-height:0;padding-right:4px}
+.b{max-width:86%;padding:10px 14px;border-radius:16px;font-size:15px}
+.b.c{background:var(--soft);align-self:flex-start}.b.o{background:#e4ebff;align-self:flex-end}
+.ai{margin-top:10px;border-radius:16px;background:#f7f2ff;border:1.5px solid #d9c8ff;padding:12px 14px}
+.ai .t{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-weight:700}
+.ai textarea{width:100%;height:84px;border:1.5px solid var(--line);border-radius:12px;padding:8px 10px;font:inherit;font-size:15px;resize:none;background:#fff}
+.conf{height:6px;border-radius:6px;background:var(--line);width:110px;overflow:hidden;display:inline-block;vertical-align:middle;margin-left:8px}
+.conf i{display:block;height:100%;background:var(--ok);width:0;transition:width .6s}
+.inrow{display:flex;gap:8px;margin-top:10px}
+.inrow input{flex:1;border:1.5px solid var(--line);border-radius:999px;padding:10px 16px;font:inherit;min-width:0}
+.qp{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.qp button{font-size:13px;padding:5px 12px;color:var(--brand)}
+.tf{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+.tf span{color:var(--muted)}.tf b{text-align:right;font-weight:600}
+/* análise */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px}
+.kpi b{display:block;font-size:34px;letter-spacing:-.02em;line-height:1.1}.kpi small{color:var(--muted)}
+.kpi .d{font-size:13px;font-weight:700}
+.grid3{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:14px;height:424px}
+.gl{display:grid;grid-template-rows:1fr 1fr;gap:14px;min-height:0}
+svg text{font-family:inherit}
+.leg{display:flex;gap:14px;font-size:13px;color:var(--muted);margin-top:4px}.leg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
+.gl ul{list-style:none;margin:0;padding:0;font-size:14px}.gl li{display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--line)}
+/* controlo */
+.ctl{display:grid;grid-template-columns:1.7fr 1fr;gap:16px;height:546px}
+.flt{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}.flt button{font-size:14px;padding:6px 14px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;color:var(--muted);font-weight:600;padding:6px 8px;border-bottom:1.5px solid var(--line)}
+td{padding:5px 8px;border-bottom:1px solid var(--line)}
+tr.r{cursor:pointer}tr.r:hover{background:var(--soft)}tr.r.sel{background:#eef2ff}
+.tw{max-height:372px;overflow:auto}
+.act{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.act button{font-size:14px;padding:7px 14px}
+.alert{border-radius:16px;padding:12px 14px;background:#fff3f1;border:1.5px solid #f5b8b0;margin-bottom:12px}
+.alert.off{background:var(--soft);border-color:var(--line)}
+.sl{margin:8px 0}.sl input{width:100%;accent-color:var(--brand)}
+.ct{display:flex;gap:10px;margin-top:10px}.ct div{flex:1;background:var(--soft);border-radius:14px;padding:8px 12px;text-align:center}.ct b{display:block;font-size:24px}
+/* fluxo */
+.fd{position:relative;height:476px;margin-top:6px}
+.lane{position:absolute;left:0;right:0;height:119px;border-radius:14px;background:var(--soft)}
+.lane:nth-child(even){background:#fafbfd}
+.ll{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-weight:700;font-size:13px;color:var(--muted);width:78px;line-height:1.2}
+.fd svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.e{fill:none;stroke:#b6bccb;stroke-width:2.5;transition:stroke .4s,stroke-width .4s}
+.e.d{stroke-dasharray:6 6}.e.on{stroke:var(--brand2);stroke-width:4}
+.n{position:absolute;display:grid;place-items:center;text-align:center;font-weight:600;font-size:14px;line-height:1.2;background:#fff;box-shadow:0 4px 14px rgba(16,24,40,.12);border-radius:16px;border:2px solid transparent;transition:all .4s;padding:4px 8px;cursor:pointer;color:var(--ink)}
+.n.ai{border-color:#c9b0ff}
+.n.dec{border-radius:20px;background:#fffbea}
+.n.on{border-color:var(--brand);background:#eef2ff;transform:scale(1.07);box-shadow:0 8px 22px rgba(36,87,245,.3)}
+.el{position:absolute;font-size:12px;font-weight:700;color:var(--muted);background:#fff;padding:0 6px;border-radius:6px}
+.fbar{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-top:10px}
+.fbar .pills{display:flex;gap:8px}
+#fdet{font-size:15px;max-width:620px}
+/* questionário */
+.qz{display:grid;grid-template-columns:380px 1fr;gap:40px;align-items:center;height:560px}
+.phone{width:340px;height:540px;margin:0 auto;border-radius:44px;background:#101828;padding:12px;box-shadow:0 20px 40px rgba(16,24,40,.25)}
+.scr{background:#fff;height:100%;border-radius:34px;padding:26px 22px;overflow:hidden;display:flex;flex-direction:column;gap:14px}
+.scr h4{margin:0;font-size:18px}
+.scr .q{font-weight:600;font-size:15px}
+.yn{display:flex;gap:8px}.yn button{flex:1}
+.sc{display:flex;gap:6px}.sc button{flex:1;font-size:24px;padding:8px 0;border-radius:14px}
+.thx{background:#e8f8ef;border-radius:16px;padding:14px;color:#0b6b36;font-weight:700;text-align:center}
+.res .row{display:flex;align-items:center;gap:10px;margin:7px 0}.res .row span{width:70px;color:var(--muted);font-size:14px}
+.res .tr{flex:1;height:14px;border-radius:8px;background:var(--line);overflow:hidden}.res .tr i{display:block;height:100%;background:linear-gradient(90deg,var(--brand),var(--brand2));transition:width .6s}
+.big{display:flex;gap:14px;margin:12px 0}.big div{flex:1;background:var(--soft);border-radius:18px;padding:14px 18px}.big b{display:block;font-size:38px;line-height:1.1;letter-spacing:-.02em}
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cdt{padding:12px 16px;border-radius:16px}
+.cdt b{display:block;font-size:14px;color:var(--brand2);margin-bottom:2px}
+.cdt span{font-size:12.5px;line-height:1.35;color:var(--muted);display:block}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="bar">
+  <div class="l"><span class="logo"></span><span>Dashboards e fluxo</span><span class="name" id="fname"></span></div>
+  <div class="r">
+    <button id="bOver" class="on">Vista geral</button>
+    <button id="bPres" class="pri">▶ Apresentar</button>
+    <button id="bFull">Ecrã inteiro</button>
+  </div>
+</div>
+<div id="stage"></div>
+<div id="dots"></div>
+<div id="hint">← → para navegar · Esc para a vista geral</div>
+
+<div id="frames" hidden>
+<!-- 1 capa -->
+<section class="frame" id="f1" data-name="Capa">
+  <h1>Dashboards e fluxo de atendimento</h1>
+  <p>Operador que pergunta e responde, controlo de incidentes e tickets, e o questionário ao cliente.</p>
+  <span class="badge">Dados fictícios · material de apoio à apresentação</span>
+</section>
+
+<!-- 2 operador -->
+<section class="frame" id="f2" data-name="Dashboard do operador">
+  <div class="fh"><div><div class="fk">TEMPLATE 1 · OPERADOR</div><h1>Dashboard do operador</h1></div><span class="badge">Dados fictícios</span></div>
+  <div class="op">
+    <div class="card"><h3>FILA</h3><div id="queue"></div></div>
+    <div class="card chat">
+      <h3>CONVERSA COM O CLIENTE <span class="chip" id="sen" style="float:right">—</span></h3>
+      <div class="msgs" id="msgs"></div>
+      <div class="ai" id="aibox" hidden>
+        <div class="t"><span>🤖 Sugestão da IA <span class="chip ai" id="asrc"></span></span><span class="muted" style="font-size:13px">confiança<span class="conf"><i id="aconf"></i></span></span></div>
+        <textarea id="atext" aria-label="Resposta sugerida (editável)"></textarea>
+        <div class="act" id="aact"></div>
+      </div>
+      <div class="qp" id="qp"></div>
+      <div class="inrow"><input type="text" id="oq" placeholder="Pergunta ao assistente…" aria-label="Pergunta ao assistente"><button class="pri" id="oask">Perguntar</button></div>
+    </div>
+    <div class="card">
+      <h3>TICKET (PREENCHIDO PELA IA)</h3>
+      <div class="tf"><span>Ticket</span><b id="t-id">—</b></div>
+      <div class="tf"><span>Resumo</span><b id="t-res">—</b></div>
+      <div class="tf"><span>Categoria</span><b id="t-cat">—</b></div>
+      <div class="tf"><span>Impacto · Urgência</span><b id="t-iu">—</b></div>
+      <div class="tf"><span>Prioridade</span><b><span class="chip" id="t-pri">—</span></b></div>
+      <div class="tf"><span>Estado</span><b><span class="chip" id="t-est">—</span></b></div>
+      <div class="act"><button id="tClose" disabled>Fechar ticket</button></div>
+      <div class="muted" id="tmsg" style="margin-top:12px;font-size:14px;min-height:40px"></div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 análise -->
+<section class="frame" id="f3" data-name="Dashboard de análise">
+  <div class="fh"><div><div class="fk">TEMPLATE 2 · ANÁLISE</div><h1>Análise de incidentes e tickets</h1></div><div style="display:flex;gap:10px;align-items:center"><span class="badge">Dados fictícios</span><button id="aLive" aria-pressed="true">● Ao vivo</button></div></div>
+  <div class="kpis">
+    <div class="card kpi"><small>Tickets hoje</small><b id="k1">—</b><span class="d muted">atualiza ao vivo</span></div>
+    <div class="card kpi"><small>Agente virtual</small><b id="k2">—</b><span class="d muted">meta do grupo: ~70 %</span></div>
+    <div class="card kpi"><small>SLA cumprido</small><b id="k3">—</b><span class="d muted">valor fictício</span></div>
+    <div class="card kpi"><small>Satisfação (1–5)</small><b id="k4">—</b><span class="d muted" id="k4n"></span></div>
+    <div class="card kpi"><small>Lacunas na base</small><b id="k5">—</b><span class="d muted">pedidos de revisão</span></div>
+  </div>
+  <div class="grid3">
+    <div class="card"><h3>CHAMADAS POR HORA</h3><svg id="cLine" viewBox="0 0 560 340" width="100%" height="350"></svg></div>
+    <div class="card"><h3>TICKETS ABERTOS POR PRIORIDADE</h3><svg id="cBars" viewBox="0 0 300 340" width="100%" height="350"></svg></div>
+    <div class="gl">
+      <div class="card"><h3>QUEM ATENDE</h3><svg id="cDon" viewBox="0 0 300 100" width="100%" height="100"></svg></div>
+      <div class="card"><h3>LACUNAS DA BASE</h3><ul id="gapl"></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 controlo -->
+<section class="frame" id="f4" data-name="Controlo de incidentes e tickets">
+  <div class="fh"><div><div class="fk">TEMPLATE 3 · CONTROLO</div><h1>Controlo de incidentes e tickets</h1></div><span class="badge">Dados fictícios</span></div>
+  <div class="ctl">
+    <div class="card">
+      <div class="flt" id="flt"></div>
+      <div class="tw"><table><thead><tr><th>Ticket</th><th>Categoria</th><th>Prio.</th><th>Estado</th><th>SLA</th></tr></thead><tbody id="tb"></tbody></table></div>
+      <div class="act" id="tact"></div>
+      <div class="muted" id="tdet" style="margin-top:10px;font-size:14px;min-height:22px">Escolhe um ticket para ver as ações.</div>
+    </div>
+    <div class="card">
+      <h3>INCIDENTE GRAVE</h3>
+      <div class="alert off" id="alert"><b id="altx">Sem incidente grave.</b><div class="muted" id="alsub" style="font-size:14px"></div></div>
+      <div class="sl"><label style="font-size:14px;font-weight:600">Limiar: <b id="mv">200</b> % do volume normal<input type="range" id="maj" min="120" max="400" step="10" value="200"></label></div>
+      <button class="pri" id="spike">Simular pico (260 %)</button>
+      <div class="ct"><div><b id="cp">0</b><small class="muted">problemas</small></div><div><b id="cc">0</b><small class="muted">changes</small></div><div><b id="ce">0</b><small class="muted">escalados</small></div></div>
+      <h3 style="margin:20px 0 6px">NOTIFICAÇÕES AO CLIENTE</h3>
+      <div class="tf"><span><span class="chip p1">P1</span> Crítica</span><b>a cada 1 hora</b></div>
+      <div class="tf"><span><span class="chip p2">P2</span> Alta</span><b>a cada 4 horas</b></div>
+      <div class="tf"><span><span class="chip p3">P3</span> Média</span><b>a cada 24 horas</b></div>
+      <div class="tf"><span><span class="chip p4">P4</span> Baixa</span><b>a cada 48 horas</b></div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 fluxo -->
+<section class="frame" id="f5" data-name="Fluxo de atendimento">
+  <div class="fh"><div><div class="fk">TEMPLATE 4 · FLUXO</div><h1>Fluxo de atendimento</h1></div><span class="badge">Dados fictícios</span></div>
+  <div class="fd" id="fd"></div>
+  <div class="fbar">
+    <div class="pills"><button id="fp1" class="on">Resolvido</button><button id="fp2">Passa a uma pessoa</button><button id="fp3">Precisa de ação</button><button class="pri" id="fplay">▶ Percorrer</button></div>
+    <div id="fdet" class="muted">Carrega num passo para ver o que acontece.</div>
+  </div>
+</section>
+
+<!-- 6 questionário -->
+<section class="frame" id="f6" data-name="Questionário ao cliente">
+  <div class="fh"><div><div class="fk">TEMPLATE 5 · QUESTIONÁRIO</div><h1>Questionário pós-chamada</h1></div><span class="badge">Dados fictícios</span></div>
+  <div class="qz">
+    <div class="phone"><div class="scr" id="scr"></div></div>
+    <div class="res">
+      <h3 class="muted" style="margin:0 0 6px;font-size:15px">RESULTADOS (ATUALIZAM AO RESPONDER)</h3>
+      <div class="big"><div><b id="rs">—</b><span class="muted">satisfação média</span></div><div><b id="rr">—</b><span class="muted">necessidade resolvida</span></div><div><b id="rc">—</b><span class="muted">recomendaria</span></div></div>
+      <div id="rbars"></div>
+      <p class="muted" style="font-size:14px;margin-top:16px">As respostas somam-se a valores iniciais fictícios. A escala é de 1 (totalmente insatisfeito) a 5 (totalmente satisfeito).</p>
+    </div>
+  </div>
+</section>
+<!-- 7 créditos -->
+<section class="frame" id="f7" data-name="Créditos e fontes">
+  <div class="fh"><div><div class="fk">CRÉDITOS</div><h1>Créditos e fontes</h1></div><span class="badge">Dados fictícios</span></div>
+  <div class="cgrid">
+    <div class="card cdt"><b>Conteúdo da solução</b><span>Documento do Grupo 2, «Integração de IA em Call Centers, em Contexto Bancário» (TAIA, ISCTE, 2026/2027): fluxo do atendimento, ticket preenchido pela IA, base de conhecimento, escalamento, notificações P1 a P4, Major Incident, questionário de 1 a 5 e a meta de cerca de 70/30.</span></div>
+    <div class="card cdt"><b>Matriz de prioridade</b><span>Impacto × urgência: Trabalho 1 do grupo, «Priorização de Incidentes de IT num Contexto Bancário» (B. Ferreira e J. Pereira, 27/09/2026).</span></div>
+    <div class="card cdt"><b>Referencial ITIL</b><span>Incidentes, problemas e mudanças; gestão do conhecimento: PeopleCert (s.d.). ITIL Foundation (Version 5): What's new guide. https://www.itil.com/Itil-News-and-Announcements/itil-version-5-foundation-whats-new-guide · PeopleCert (2026, 27 de fevereiro). ITIL (Version 5): Built for the AI and Cloud Era. https://www.itil.com/Itil-News-and-Announcements/itil-version-5-ai-cloud-era</span></div>
+    <div class="card cdt"><b>Conceito de recuperação (RAG)</b><span>Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., Küttler, H., Lewis, M., Yih, W., Rocktäschel, T., Riedel, S., &amp; Kiela, D. (2020). Retrieval-augmented generation for knowledge-intensive NLP tasks. Advances in Neural Information Processing Systems, 33.</span></div>
+    <div class="card cdt"><b>Exemplos e regras</b><span>Clientes, tickets, regra de risco (fraude) e valores dos gráficos: ilustrativos, criados com o Claude.</span></div>
+    <div class="card cdt"><b>Layout</b><span>Estilo de apresentação inspirado no Figma. Não foi criado no Figma.</span></div>
+    <div class="card cdt"><b>Desenvolvimento</b><span>Textos e código gerados com o Claude (Anthropic, modelo Sonnet 5.5), através do Claude Code, e revistos pelo grupo.</span></div>
+    <div class="card cdt"><b>Dados</b><span>Todos os dados, clientes, tickets e artigos são fictícios. As simulações usam valores aleatórios e não são resultados nem previsões.</span></div>
+    <div class="card cdt"><b>Técnica</b><span>Sem bibliotecas externas. Letras do sistema e ícones em emojis do sistema.</span></div>
+  </div>
+</section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const matrix = {Alta:['P1','P2','P3'], Média:['P2','P3','P4'], Baixa:['P3','P4','P4']};
+const imp = ['Toda a organização','Alguns de nós','Só eu'];
+const pnames = {P1:'Crítica', P2:'Alta', P3:'Média', P4:'Baixa'};
+
+/* ================= estado partilhado ================= */
+const kb = [
+  {t:'Reativar o acesso ao homebanking', key:['homebanking','acesso','entrar','dispositivo','reativar','login'], txt:'Para reativar o acesso num novo telemóvel: confirmo a sua identidade, registo o novo dispositivo e, se não resultar, abro um pedido à equipa de acessos.'},
+  {t:'Desbloquear cartão após PIN errado', key:['cartao','multibanco','pin','bloqueado','bloqueou','desbloquear','errar','errado'], txt:'O cartão fica bloqueado após três PINs errados. Confirmo a sua identidade e explico o prazo e o canal de desbloqueio.'},
+  {t:'Horários e contactos da agência', key:['horario','horarios','agencia','abre','fecha','contacto'], txt:'Indico o horário e o contacto da agência mais próxima.'},
+  {t:'Pedir segunda via de extrato', key:['extrato','segunda','via'], txt:'Pode pedir a segunda via do extrato; registo o pedido e indico o prazo de envio.'}
+];
+const risk = ['roubad','roubo','furto','fraude','perdi','burla','suspeit'];
+const queue = [
+  {id:'T-2044', cli:'Cliente A', res:'Sem acesso ao homebanking', cat:'Incidente · homebanking', i:2, u:'Alta', sen:'Neutro', msg:'Mudei de telemóvel e já não consigo entrar na aplicação.', prompts:['Como reativar o acesso num novo telemóvel?']},
+  {id:'T-2045', cli:'Cliente B', res:'Cartão bloqueado', cat:'Incidente · cartão', i:2, u:'Alta', sen:'Insatisfeito', msg:'O cartão ficou bloqueado depois de eu errar o PIN.', prompts:['Como desbloquear o cartão?']},
+  {id:'T-2046', cli:'Cliente C', res:'Cartão roubado', cat:'Incidente · fraude', i:1, u:'Alta', sen:'Insatisfeito', msg:'Perdi a carteira, acho que me roubaram o cartão.', prompts:['Posso bloquear o cartão já?']},
+  {id:'T-2047', cli:'Cliente D', res:'Pagar com o telemóvel', cat:'Pedido · informação', i:2, u:'Baixa', sen:'Neutro', msg:'Posso pagar as compras com o telemóvel?', prompts:['Como pago com o telemóvel?']}
+].map(q => ({...q, pri: matrix[q.u][q.i], est:'Na fila', slaMin: null, log:[]}));
+const seed = [
+  {id:'T-2038', cli:'Cliente 1', cat:'Pedido · extrato', pri:'P4', est:'Resolvido', sla:null},
+  {id:'T-2039', cli:'Cliente 2', cat:'Incidente · transferência', pri:'P2', est:'Em análise', sla:135},
+  {id:'T-2040', cli:'Cliente 3', cat:'Pedido · dados pessoais', pri:'P4', est:'Resolvido', sla:null},
+  {id:'T-2041', cli:'Cliente 4', cat:'Incidente · homebanking', pri:'P3', est:'Em aberto', sla:690},
+  {id:'T-2042', cli:'Cliente 5', cat:'Incidente · pagamentos', pri:'P1', est:'Em análise', sla:35},
+  {id:'T-2043', cli:'Cliente 6', cat:'Pedido · cartão', pri:'P3', est:'Em aberto', sla:540}
+];
+const S = {
+  tickets: [...seed, ...queue.map(q => q)],
+  gaps: [{q:'pagar com o telemóvel', n:14, rev:false}, {q:'alterar limite diário', n:11, rev:false}, {q:'cartão virtual', n:8, rev:false}],
+  survey: {r:[2,3,8,17,30], res:[51,9], rec:[45,15]},
+  prob:0, chg:0, esc:0, major:false, filter:'todos', selT:null,
+  calls: 312, virt: 70, sla: 96, hours: [], live: true
+};
+function rnd(seedv){ let t = seedv >>> 0; return () => { t += 0x6D2B79F5; let r = Math.imul(t ^ t >>> 15, 1 | t); r ^= r + Math.imul(r ^ r >>> 7, 61 | r); return ((r ^ r >>> 14) >>> 0) / 4294967296; }; }
+{ const r = rnd(7); for (let h = 0; h < 24; h++){ const base = [3,2,2,2,3,6,14,26,38,44,41,36,33,35,38,40,36,30,22,16,11,8,5,4][h]; S.hours.push(Math.round(base * (0.9 + r() * 0.2))); } }
+const isOpen = t => t.est !== 'Resolvido';
+
+/* ================= quadros: motor de vistas ================= */
+const stage = $('stage'), frames = [...document.querySelectorAll('#frames .frame')];
+let mode = 'over', idx = 0;
+const slots = frames.map((f, k) => { const s = document.createElement('div'); s.className = 'slot'; s.innerHTML = `<span class="lbl">${k + 1} · ${f.dataset.name}</span>`; s.appendChild(f); s.addEventListener('click', () => { if (mode === 'over') open(k); }); stage.appendChild(s); return s; });
+$('frames').remove();
+const dots = $('dots'); frames.forEach((f, k) => { const d = document.createElement('i'); d.addEventListener('click', () => open(k)); dots.appendChild(d); });
+function layout(){
+  const vw = innerWidth, vh = innerHeight - 56;
+  if (mode === 'over'){
+    document.body.classList.remove('pm'); stage.classList.remove('present');
+    const cols = vw > 1500 ? 3 : vw > 900 ? 2 : 1, gap = 44, w = Math.floor((vw - gap * (cols + 1)) / cols), sc = w / 1280, h = 720 * sc;
+    slots.forEach((s, k) => { const c = k % cols, r = Math.floor(k / cols);
+      Object.assign(s.style, {display:'block', width:w + 'px', height:h + 'px', left:(gap + c * (w + gap)) + 'px', top:(gap + 20 + r * (h + gap + 24)) + 'px'});
+      frames[k].style.transform = `scale(${sc})`; });
+    $('fname').textContent = '';
+  } else {
+    document.body.classList.add('pm'); stage.classList.add('present');
+    const sc = Math.min((vw - 40) / 1280, (vh - 60) / 720), w = 1280 * sc, h = 720 * sc;
+    slots.forEach((s, k) => { s.style.display = k === idx ? 'block' : 'none';
+      Object.assign(s.style, {width:w + 'px', height:h + 'px', left:((vw - w) / 2) + 'px', top:((vh - h) / 2 - 8) + 'px'}); frames[k].style.transform = `scale(${sc})`; });
+    $('fname').textContent = '· ' + (idx + 1) + ' / ' + frames.length + ' · ' + frames[idx].dataset.name;
+    [...dots.children].forEach((d, k) => d.classList.toggle('on', k === idx));
+  }
+  $('bOver').classList.toggle('on', mode === 'over'); $('bPres').classList.toggle('on', mode === 'pres');
+}
+function setHash(h){ try { history.replaceState(null, '', h); } catch (e) { /* ficheiro local: ignora */ } }
+function open(k){ idx = (k + frames.length) % frames.length; mode = 'pres'; layout(); setHash('#f' + (idx + 1)); }
+function overview(){ mode = 'over'; layout(); setHash('#geral'); }
+$('bOver').addEventListener('click', overview);
+$('bPres').addEventListener('click', () => open(idx));
+$('bFull').addEventListener('click', () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); });
+addEventListener('resize', layout);
+addEventListener('keydown', e => {
+  if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+  if (mode === 'pres'){ if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') open(idx + 1); else if (e.key === 'ArrowLeft' || e.key === 'PageUp') open(idx - 1); else if (e.key === 'Escape') overview(); }
+  else if (e.key === 'Enter') open(idx);
+});
+
+/* ================= 2. operador ================= */
+let cq = 0, lastAns = null;
+function qList(){
+  $('queue').innerHTML = '';
+  queue.forEach((q, k) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'qi' + (k === cq ? ' sel' : '');
+    const cls = q.est === 'Resolvido' ? 'ok' : q.est === 'Escalado' ? 'bad' : q.est === 'Em aberto' ? 'warn' : '';
+    b.innerHTML = `<b>${q.cli}</b><small>${esc(q.res)}</small><span class="chip ${q.pri.toLowerCase()}">${q.pri}</span> <span class="chip ${cls}">${q.est}</span>`;
+    b.addEventListener('click', () => selQ(k)); $('queue').appendChild(b); });
+}
+function ticketBox(){
+  const q = queue[cq];
+  $('t-id').textContent = q.id; $('t-res').textContent = q.res; $('t-cat').textContent = q.cat; $('t-iu').textContent = imp[q.i] + ' · ' + q.u;
+  const p = $('t-pri'); p.textContent = q.pri + ' ' + pnames[q.pri]; p.className = 'chip ' + q.pri.toLowerCase();
+  const e = $('t-est'); e.textContent = q.est; e.className = 'chip ' + (q.est === 'Resolvido' ? 'ok' : q.est === 'Escalado' ? 'bad' : q.est === 'Em aberto' ? 'warn' : '');
+  $('tClose').disabled = !(q.sentOk && q.est !== 'Resolvido');
+}
+function msgs(){
+  const q = queue[cq], m = $('msgs'); m.innerHTML = '';
+  const add = (cls, t) => { const d = document.createElement('div'); d.className = 'b ' + cls; d.textContent = t; m.appendChild(d); };
+  add('c', q.msg); q.log.forEach(l => add(l.c, l.t)); m.scrollTop = m.scrollHeight;
+  const s = $('sen'); s.textContent = 'Sentimento: ' + q.sen; s.className = 'chip ' + (q.sen === 'Insatisfeito' ? 'warn' : 'blue');
+}
+function selQ(k){
+  cq = k; lastAns = null; $('aibox').hidden = true; $('tmsg').textContent = '';
+  const q = queue[k]; $('qp').innerHTML = '';
+  q.prompts.forEach(p => { const b = document.createElement('button'); b.type = 'button'; b.textContent = p; b.addEventListener('click', () => { $('oq').value = p; ask(); }); $('qp').appendChild(b); });
+  qList(); msgs(); ticketBox();
+}
+function answer(text){
+  const toks = norm(text).split(/[^a-z0-9]+/).filter(w => w.length > 2), nt = norm(text) + ' ' + norm(queue[cq].msg);
+  if (risk.some(r => nt.includes(r))) return {type:'risk', conf:92, src:'Regra de risco', txt:'Isto parece uma situação de risco (possível fraude). Vou bloquear o cartão de imediato e passar o caso à equipa responsável, que o contactará.'};
+  const sc = kb.map(a => ({a, s: a.key.filter(k => toks.includes(k)).length})).filter(r => r.s > 0).sort((x, y) => y.s - x.s)[0];
+  if (sc) return {type:'kb', conf: Math.min(96, 72 + sc.s * 8), src: sc.a.t, txt: sc.a.txt, art: sc.a};
+  return {type:'gap', conf:0, src:'Sem artigo', txt:'Não tenho um artigo validado sobre isto, por isso não vou inventar a resposta. Vou pedir ajuda e registar a lacuna.'};
+}
+function ask(){
+  const t = $('oq').value.trim(); if (!t) return; const q = queue[cq];
+  const a = lastAns = answer(t);
+  $('aibox').hidden = false; $('asrc').textContent = a.src; $('atext').value = a.txt; $('aconf').style.width = '0%'; $('aconf').style.background = a.type === 'gap' ? 'var(--bad)' : a.type === 'risk' ? 'var(--warn)' : 'var(--ok)';
+  setTimeout(() => $('aconf').style.width = a.conf + '%', 30);
+  const act = $('aact'); act.innerHTML = '';
+  const mk = (label, cls, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = cls || ''; b.textContent = label; b.addEventListener('click', fn); act.appendChild(b); };
+  if (a.type === 'kb') mk('Enviar ao cliente', 'pri', () => send());
+  if (a.type === 'risk') mk('Escalar à equipa', 'pri', () => escalate());
+  if (a.type === 'gap') mk('Pedir artigo (Requer Revisão)', 'pri', () => gap(t));
+  mk('Descartar', '', () => { $('aibox').hidden = true; });
+}
+function send(){
+  const q = queue[cq]; q.log.push({c:'o', t:$('atext').value}); q.sentOk = true; if (q.est === 'Na fila') q.est = 'Em aberto'; q.slaMin = q.slaMin || 240;
+  $('aibox').hidden = true; $('oq').value = ''; msgs(); qList(); ticketBox(); $('tmsg').textContent = 'Resposta enviada. Podes fechar o ticket quando o cliente confirmar.'; renderAll();
+}
+function escalate(){
+  const q = queue[cq]; q.log.push({c:'o', t:$('atext').value}); q.est = 'Escalado'; q.pri = q.pri === 'P3' ? 'P2' : q.pri; q.slaMin = 60; S.esc++;
+  $('aibox').hidden = true; $('oq').value = ''; msgs(); qList(); ticketBox(); $('tmsg').textContent = 'Escalado à equipa de fraude, com o resumo já no ticket.'; renderAll();
+}
+function gap(t){
+  const q = queue[cq]; q.est = 'Em aberto'; q.slaMin = 480; const g = S.gaps.find(x => norm(x.q) === norm(t)); if (g) g.n++; else S.gaps.unshift({q:t, n:1, rev:true});
+  q.log.push({c:'o', t:'Vou verificar e volto a contactá-lo.'}); $('aibox').hidden = true; $('oq').value = ''; msgs(); qList(); ticketBox();
+  $('tmsg').textContent = 'Lacuna registada como «Requer Revisão». Aparece no dashboard de análise.'; renderAll();
+}
+$('oask').addEventListener('click', ask);
+$('oq').addEventListener('keydown', e => { if (e.key === 'Enter') ask(); });
+$('tClose').addEventListener('click', () => { const q = queue[cq]; q.est = 'Resolvido'; q.slaMin = null; qList(); ticketBox(); $('tmsg').textContent = 'Ticket fechado. O cliente recebe o questionário.'; renderAll(); });
+
+/* ================= 3. análise ================= */
+function svgEl(w, h, inner){ return inner; }
+function lineChart(el, data){
+  const W = 560, H = 340, pl = 34, pb = 26, pt = 10, max = Math.max(...data) * 1.15, n = data.length;
+  const x = i => pl + i * (W - pl - 8) / (n - 1), y = v => pt + (H - pt - pb) * (1 - v / max);
+  let g = '';
+  for (let k = 0; k <= 4; k++){ const v = Math.round(max * k / 4); g += `<line x1="${pl}" x2="${W - 8}" y1="${y(v)}" y2="${y(v)}" stroke="#eef0f5"/><text x="${pl - 6}" y="${y(v) + 4}" font-size="11" text-anchor="end" fill="#667085">${v}</text>`; }
+  const pts = data.map((v, i) => `${x(i)},${y(v)}`).join(' ');
+  const area = `${x(0)},${H - pb} ${pts} ${x(n - 1)},${H - pb}`;
+  let lab = ''; for (let i = 0; i < n; i += 4) lab += `<text x="${x(i)}" y="${H - 6}" font-size="11" text-anchor="middle" fill="#667085">${String(i).padStart(2, '0')}h</text>`;
+  el.innerHTML = `<defs><linearGradient id="lg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#7a3cff" stop-opacity=".25"/><stop offset="1" stop-color="#7a3cff" stop-opacity="0"/></linearGradient></defs>${g}<polygon points="${area}" fill="url(#lg)"/><polyline points="${pts}" fill="none" stroke="#2457f5" stroke-width="3" stroke-linejoin="round"/><circle cx="${x(n - 1)}" cy="${y(data[n - 1])}" r="6" fill="#fff" stroke="#7a3cff" stroke-width="3"/>${lab}`;
+}
+function barChart(el, items){
+  const W = 300, H = 340, pb = 34, pt = 14, max = Math.max(1, ...items.map(i => i.v)) * 1.15, bw = 46, gap = (W - items.length * bw) / (items.length + 1);
+  const col = {P1:'#e0412f', P2:'#f0a030', P3:'#e6c84a', P4:'#4cb877'};
+  el.innerHTML = items.map((it, k) => { const h = (H - pb - pt) * it.v / max, x = gap + k * (bw + gap), y = H - pb - h;
+    return `<rect x="${x}" y="${y}" width="${bw}" height="${h}" rx="10" fill="${col[it.l]}"/><text x="${x + bw / 2}" y="${y - 6}" font-size="14" font-weight="700" text-anchor="middle" fill="#101828">${it.v}</text><text x="${x + bw / 2}" y="${H - 12}" font-size="13" text-anchor="middle" fill="#667085">${it.l}</text>`; }).join('');
+}
+function donut(el, pct){
+  const r = 34, c = 2 * Math.PI * r, off = c * (1 - pct / 100);
+  el.innerHTML = `<g transform="translate(52,50)"><circle r="${r}" fill="none" stroke="#ffb86b" stroke-width="14"/><circle r="${r}" fill="none" stroke="#2457f5" stroke-width="14" stroke-dasharray="${c}" stroke-dashoffset="${off}" transform="rotate(-90)" style="transition:stroke-dashoffset .8s"/><text y="7" font-size="20" font-weight="800" text-anchor="middle" fill="#101828">${Math.round(pct)}%</text></g><g font-size="14"><circle cx="130" cy="36" r="6" fill="#2457f5"/><text x="144" y="41" fill="#101828">Agente virtual</text><circle cx="130" cy="64" r="6" fill="#ffb86b"/><text x="144" y="69" fill="#101828">Pessoas</text></g>`;
+}
+function surveyStats(){ const r = S.survey.r, n = r.reduce((a, b) => a + b, 0); const avg = r.reduce((a, v, i) => a + v * (i + 1), 0) / n;
+  return {n, avg, res: S.survey.res[0] / (S.survey.res[0] + S.survey.res[1]) * 100, rec: S.survey.rec[0] / (S.survey.rec[0] + S.survey.rec[1]) * 100}; }
+function renderAnalysis(){
+  $('k1').textContent = S.calls; $('k2').textContent = Math.round(S.virt) + ' %'; $('k3').textContent = Math.round(S.sla) + ' %';
+  const st = surveyStats(); $('k4').textContent = st.avg.toFixed(2).replace('.', ','); $('k4n').textContent = st.n + ' respostas';
+  $('k5').textContent = S.gaps.length;
+  lineChart($('cLine'), S.hours);
+  const cnt = {P1:0, P2:0, P3:0, P4:0}; S.tickets.filter(isOpen).forEach(t => cnt[t.pri]++);
+  barChart($('cBars'), ['P1','P2','P3','P4'].map(l => ({l, v:cnt[l]})));
+  donut($('cDon'), S.virt);
+  $('gapl').innerHTML = S.gaps.slice(0, 3).map(g => `<li><span>${esc(g.q)}</span><span>${g.rev ? '<span class="chip warn">Requer Revisão</span>' : g.n + '×'}</span></li>`).join('');
+}
+function tick(){
+  if (!S.live) return;
+  const r = Math.random;
+  S.calls += 1 + Math.floor(r() * 3); S.virt = Math.min(76, Math.max(64, S.virt + (r() - .5) * 2)); S.sla = Math.min(99, Math.max(92, S.sla + (r() - .5) * 1.2));
+  S.hours[S.hours.length - 1] = Math.max(1, S.hours[S.hours.length - 1] + Math.round((r() - .45) * 3));
+  renderAnalysis();
+}
+$('aLive').addEventListener('click', e => { S.live = !S.live; e.currentTarget.setAttribute('aria-pressed', S.live); e.currentTarget.textContent = S.live ? '● Ao vivo' : '⏸ Em pausa'; });
+if (!reduce) setInterval(tick, 2500);
+
+/* ================= 4. controlo ================= */
+const filters = [['todos','Todos'], ['p12','P1 e P2'], ['sla','SLA em risco'], ['esc','Escalados']];
+filters.forEach(([k, l]) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = l; b.dataset.k = k; b.addEventListener('click', () => { S.filter = k; renderControl(); }); $('flt').appendChild(b); });
+const fmt = m => m == null ? '—' : String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+function tSla(t){ return t.slaMin != null ? t.slaMin : t.sla; }
+function renderControl(){
+  [...$('flt').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.k === S.filter));
+  let rows = S.tickets.filter(t => S.filter === 'todos' || (S.filter === 'p12' && (t.pri === 'P1' || t.pri === 'P2')) || (S.filter === 'sla' && isOpen(t) && tSla(t) != null && tSla(t) <= 60) || (S.filter === 'esc' && t.est === 'Escalado'));
+  $('tb').innerHTML = rows.map(t => { const s = tSla(t), cls = t.est === 'Resolvido' ? 'ok' : t.est === 'Escalado' || t.est === 'Major Incident' ? 'bad' : t.est === 'Em aberto' ? 'warn' : 'blue';
+    return `<tr class="r${S.selT === t.id ? ' sel' : ''}" data-id="${t.id}"><td style="white-space:nowrap"><b>${t.id}</b> <span class="muted" style="font-size:12px">${t.cli}</span></td><td>${esc(t.cat)}</td><td><span class="chip ${t.pri.toLowerCase()}">${t.pri}</span></td><td><span class="chip ${cls}">${t.est}</span></td><td${isOpen(t) && s != null && s <= 60 ? ' style="color:var(--bad);font-weight:700"' : ''}>${fmt(isOpen(t) ? s : null)}</td></tr>`; }).join('') || '<tr><td colspan="5" class="muted">Sem tickets neste filtro.</td></tr>';
+  document.querySelectorAll('#tb tr.r').forEach(tr => tr.addEventListener('click', () => { S.selT = tr.dataset.id; renderControl(); }));
+  const t = S.tickets.find(x => x.id === S.selT), a = $('tact'); a.innerHTML = '';
+  if (t){
+    $('tdet').textContent = `${t.id} · ${t.cat} · ${t.pri} ${pnames[t.pri]} · ${t.est}`;
+    const mk = (l, fn, dis) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = l; b.disabled = !!dis; b.addEventListener('click', fn); a.appendChild(b); };
+    mk('Escalar', () => { t.est = 'Escalado'; S.esc++; renderAll(); }, !isOpen(t) || t.est === 'Escalado');
+    mk('Abrir problema', () => { S.prob++; $('tdet').textContent = 'Problema registado para ' + t.id + ' (causa raiz).'; renderControl(); }, !isOpen(t));
+    mk('Criar change', () => { S.chg++; $('tdet').textContent = 'Change request criado, ligado a ' + t.id + '.'; renderControl(); }, !isOpen(t));
+    mk('Fechar', () => { t.est = 'Resolvido'; t.slaMin = null; renderAll(); }, !isOpen(t));
+  } else $('tdet').textContent = 'Escolhe um ticket para ver as ações.';
+  $('cp').textContent = S.prob; $('cc').textContent = S.chg; $('ce').textContent = S.esc;
+}
+$('maj').addEventListener('input', e => $('mv').textContent = e.target.value);
+$('spike').addEventListener('click', () => {
+  const lim = +$('maj').value, vol = 260, al = $('alert');
+  if (vol >= lim){
+    S.major = true; al.className = 'alert'; $('altx').textContent = '🚨 Major Incident P1 criado';
+    $('alsub').textContent = `Falha na aplicação: ${vol} % do volume normal, acima do limiar de ${lim} %. Os tickets seguintes ficam associados.`;
+    if (!S.tickets.find(t => t.id === 'INC-9001')) S.tickets.unshift({id:'INC-9001', cli:'Major Incident', cat:'Incidente · aplicação', pri:'P1', est:'Major Incident', sla:60});
+    S.selT = 'INC-9001';
+  } else { al.className = 'alert off'; $('altx').textContent = 'Pico abaixo do limiar.'; $('alsub').textContent = `${vol} % do volume, limiar de ${lim} %: não é criado Major Incident.`; }
+  renderAll();
+});
+
+/* ================= 5. fluxo ================= */
+const NW = 150, NH = 56;
+const nodes = {
+  liga:{x:150, y:60, w:NW, h:NH, t:'Cliente liga', d:'A chamada entra no contact center.', lane:0},
+  ident:{x:300, y:178, w:130, h:NH, t:'Identifica o cliente', d:'O agente virtual reconhece o cliente nas bases do banco.', ai:true},
+  comp:{x:460, y:178, w:150, h:NH, t:'Ouve e compreende', d:'Transcreve a chamada e analisa conteúdo e sentimento.', ai:true},
+  cons:{x:630, y:178, w:140, h:NH, t:'Consulta a base de conhecimento', d:'Procura artigos validados para responder.', ai:true},
+  dec:{x:800, y:178, w:150, h:84, t:'Resolve?', d:'Decide: resolver, encaminhar à equipa ou passar a uma pessoa.', dec:true},
+  tick:{x:460, y:416, w:150, h:NH, t:'Cria o ticket', d:'Resumo, categoria e prioridade preenchidos, em paralelo.', ai:true},
+  fecha:{x:800, y:416, w:140, h:NH, t:'Fecha o ticket', d:'Resolvido na chamada: o ticket fecha-se automaticamente.'},
+  equi:{x:640, y:297, w:150, h:NH, t:'Equipa responsável', d:'Encaminhado pela categoria para executar a ação.'},
+  pess:{x:910, y:297, w:140, h:NH, t:'1.ª linha (pessoa)', d:'Em caso de dúvida ou a pedido do cliente, com ticket e resumo já criados.'},
+  quest:{x:1090, y:60, w:150, h:NH, t:'Questionário 1–5', d:'O cliente avalia o atendimento de 1 a 5.'},
+  notif:{x:620, y:416, w:140, h:NH, t:'Notificações', d:'Atualizações automáticas ao cliente, segundo a prioridade.'}
+};
+const lanes = ['Cliente','Agente virtual','Pessoas','ITSM'];
+const edges = [
+  {id:'e1', a:'liga', b:'ident', s:'b', t:'l'}, {id:'e2', a:'ident', b:'comp', s:'r', t:'l'}, {id:'e3', a:'comp', b:'cons', s:'r', t:'l'}, {id:'e4', a:'cons', b:'dec', s:'r', t:'l'},
+  {id:'e5', a:'comp', b:'tick', s:'b', t:'t', dash:true},
+  {id:'e6', a:'dec', b:'fecha', s:'b', t:'t', lab:'Sim', lx:812, ly:352},
+  {id:'e7', a:'dec', b:'equi', s:'b', t:'r', lab:'Precisa de ação', lx:722, ly:236},
+  {id:'e8', a:'dec', b:'pess', s:'r', t:'t', lab:'Dúvida ou pede pessoa', lx:916, ly:222},
+  {id:'e9', a:'fecha', b:'quest', s:'r', t:'b', dash:true}, {id:'e10', a:'pess', b:'quest', s:'r', t:'b', dash:true}, {id:'e11', a:'equi', b:'notif', s:'b', t:'t'}, {id:'e12', a:'pess', b:'notif', s:'b', t:'t'}
+];
+function anchor(n, side){ const c = {x:n.x, y:n.y}; return side === 'l' ? {x:c.x - n.w / 2, y:c.y, dx:-1, dy:0} : side === 'r' ? {x:c.x + n.w / 2, y:c.y, dx:1, dy:0} : side === 't' ? {x:c.x, y:c.y - n.h / 2, dx:0, dy:-1} : {x:c.x, y:c.y + n.h / 2, dx:0, dy:1}; }
+const fd = $('fd');
+{
+  let h = '';
+  lanes.forEach((l, k) => { h += `<div class="lane" style="top:${k * 119}px"><span class="ll">${l}</span></div>`; });
+  h += '<svg viewBox="0 0 1176 476" id="fsvg"><defs><marker id="ar" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#8b91a3"/></marker></defs>';
+  edges.forEach(e => { const A = anchor(nodes[e.a], e.s), B = anchor(nodes[e.b], e.t), k = Math.max(40, Math.hypot(B.x - A.x, B.y - A.y) * .4);
+    h += `<path id="${e.id}" class="e${e.dash ? ' d' : ''}" marker-end="url(#ar)" d="M${A.x},${A.y} C${A.x + A.dx * k},${A.y + A.dy * k} ${B.x + B.dx * k},${B.y + B.dy * k} ${B.x},${B.y}"/>`; });
+  h += '</svg>';
+  edges.filter(e => e.lab).forEach(e => { h += `<span class="el" style="left:${e.lx}px;top:${e.ly}px">${e.lab}</span>`; });
+  Object.keys(nodes).forEach(k => { const n = nodes[k]; h += `<button class="n${n.ai ? ' ai' : ''}${n.dec ? ' dec' : ''}" id="n_${k}" data-k="${k}" style="left:${n.x - n.w / 2}px;top:${n.y - n.h / 2}px;width:${n.w}px;height:${n.h}px">${n.t}</button>`; });
+  fd.innerHTML = h;
+}
+const paths = {
+  p1:{n:['liga','ident','comp','tick','cons','dec','fecha','quest'], e:['e1','e2','e5','e3','e4','e6','e9'], txt:'Resolvido na chamada: o ticket fecha-se e o cliente responde ao questionário.'},
+  p2:{n:['liga','ident','comp','tick','cons','dec','pess','quest','notif'], e:['e1','e2','e5','e3','e4','e8','e10','e12'], txt:'Passa a uma pessoa: a 1.ª linha recebe o ticket e o resumo já criados.'},
+  p3:{n:['liga','ident','comp','tick','cons','dec','equi','notif'], e:['e1','e2','e5','e3','e4','e7','e11'], txt:'Precisa de ação: a equipa responsável executa, e o cliente recebe notificações.'}
+};
+let fpath = 'p1', fRun = 0;
+function clearFlow(){ document.querySelectorAll('#fd .n').forEach(n => n.classList.remove('on')); document.querySelectorAll('#fd .e').forEach(e => e.classList.remove('on')); }
+function pickPath(k){ fpath = k; ['p1','p2','p3'].forEach((p, i) => $('fp' + (i + 1)).classList.toggle('on', p === k)); clearFlow(); $('fdet').textContent = paths[k].txt; }
+async function playFlow(){
+  const me = ++fRun, p = paths[fpath]; clearFlow(); $('fplay').disabled = true;
+  const sleep = ms => new Promise(r => setTimeout(r, reduce ? 0 : ms));
+  for (let i = 0; i < p.n.length; i++){
+    if (me !== fRun) return;
+    $('n_' + p.n[i]).classList.add('on'); $('fdet').textContent = nodes[p.n[i]].t + ': ' + nodes[p.n[i]].d;
+    const e = p.e.find(id => edges.find(x => x.id === id).b === p.n[i]); if (e) $(e).classList.add('on');
+    await sleep(900);
+  }
+  $('fdet').textContent = p.txt; $('fplay').disabled = false;
+}
+['fp1','fp2','fp3'].forEach((id, i) => $(id).addEventListener('click', () => { fRun++; $('fplay').disabled = false; pickPath('p' + (i + 1)); }));
+$('fplay').addEventListener('click', playFlow);
+document.querySelectorAll('#fd .n').forEach(b => b.addEventListener('click', () => { fRun++; $('fplay').disabled = false; clearFlow(); b.classList.add('on'); $('fdet').textContent = nodes[b.dataset.k].t + ': ' + nodes[b.dataset.k].d; }));
+
+/* ================= 6. questionário ================= */
+const ans = {res:null, sat:null, rec:null, done:false};
+function renderPhone(){
+  const s = $('scr');
+  if (ans.done){ s.innerHTML = '<h4>Obrigado!</h4><div class="thx">A sua resposta foi registada.</div><button id="again">Responder de novo</button>'; $('again').addEventListener('click', () => { Object.assign(ans, {res:null, sat:null, rec:null, done:false}); renderPhone(); }); return; }
+  const yn = (k, v) => `<div class="yn"><button data-k="${k}" data-v="1" aria-pressed="${v === 1}">Sim</button><button data-k="${k}" data-v="0" aria-pressed="${v === 0}">Não</button></div>`;
+  s.innerHTML = `<h4>Como correu o atendimento?</h4><div class="q">A sua necessidade foi resolvida?</div>${yn('res', ans.res)}<div class="q">Qual é a sua satisfação? (1 a 5)</div><div class="sc">${['😞','🙁','😐','🙂','😀'].map((e, i) => `<button data-k="sat" data-v="${i + 1}" aria-pressed="${ans.sat === i + 1}" aria-label="${i + 1}">${e}</button>`).join('')}</div><div class="q">Recomendaria o serviço?</div>${yn('rec', ans.rec)}<button class="pri" id="qsend" ${ans.res === null || ans.sat === null || ans.rec === null ? 'disabled' : ''}>Enviar</button>`;
+  s.querySelectorAll('button[data-k]').forEach(b => b.addEventListener('click', () => { ans[b.dataset.k] = +b.dataset.v; renderPhone(); }));
+  const sd = $('qsend'); if (sd) sd.addEventListener('click', () => { S.survey.r[ans.sat - 1]++; S.survey.res[ans.res ? 0 : 1]++; S.survey.rec[ans.rec ? 0 : 1]++; ans.done = true; renderPhone(); renderAll(); });
+}
+function renderSurvey(){
+  const st = surveyStats(), mx = Math.max(...S.survey.r);
+  $('rs').textContent = st.avg.toFixed(2).replace('.', ','); $('rr').textContent = Math.round(st.res) + ' %'; $('rc').textContent = Math.round(st.rec) + ' %';
+  $('rbars').innerHTML = S.survey.r.map((v, i) => `<div class="row"><span>${i + 1} ${['😞','🙁','😐','🙂','😀'][i]}</span><div class="tr"><i style="width:${v / mx * 100}%"></i></div><b style="width:34px;text-align:right">${v}</b></div>`).reverse().join('');
+}
+
+function renderAll(){ renderAnalysis(); renderControl(); renderSurvey(); }
+selQ(0); renderPhone(); pickPath('p1'); renderAll();
+{ const h = location.hash; const m = /^#f(\d)$/.exec(h); if (m && +m[1] >= 1 && +m[1] <= frames.length) open(+m[1] - 1); else layout(); }
+</script>
+</body>
+</html>

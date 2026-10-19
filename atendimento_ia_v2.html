@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<script src="acesso.js"></script>
+<!--
+CRÉDITOS E FONTES
+- Conteúdo da solução: Documento do Grupo 2, «Integração de IA em Call Centers, em Contexto Bancário» (TAIA, ISCTE, 2026/2027): fluxo da chamada, ticket automático, rácio de cerca de 70/30, notificações P1 a P4 (1 h, 4 h, 24 h, 48 h), Major Incident acima de 200 % do volume normal e questionário de 1 a 5.
+- Matriz de prioridade: Impacto × urgência: Trabalho 1 do grupo, «Priorização de Incidentes de IT num Contexto Bancário» (B. Ferreira e J. Pereira, 27/09/2026).
+- Referencial ITIL: Gestão de incidentes, de problemas e da mudança: PeopleCert (s.d.). ITIL Foundation (Version 5): What's new guide. https://www.itil.com/Itil-News-and-Announcements/itil-version-5-foundation-whats-new-guide
+- Narração e legendas: Voz: síntese de voz do macOS (voz Joana, pt-PT). Textos das legendas escritos com o Claude.
+- Desenvolvimento: Textos e código gerados com o Claude (Anthropic, modelo Sonnet 5.5), através do Claude Code, e revistos pelo grupo.
+- Dados: Todos os dados, clientes, tickets e artigos são fictícios. As simulações usam valores aleatórios e não são resultados nem previsões.
+- Técnica: Sem bibliotecas externas. Letras do sistema e ícones em emojis do sistema.
+-->
+
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atendimento com IA</title>
+<style>
+:root{
+  --bg:#f3f5fb; --card:#ffffff; --ink:#101828; --muted:#667085; --line:#e4e7ee;
+  --brand:#2457f5; --brand2:#7a3cff; --ok:#12a150; --warn:#e08a00; --bad:#e0412f;
+  --shadow:0 12px 34px rgba(16,24,40,.08); --r:26px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;color:var(--ink);font:18px/1.5 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:radial-gradient(1200px 520px at 85% -10%,#e5ddff 0,transparent 60%),radial-gradient(900px 480px at -5% 0,#dbe7ff 0,transparent 55%),var(--bg);min-height:100vh}
+button{font:inherit;cursor:pointer;border:0;border-radius:999px;padding:12px 22px;transition:transform .15s,box-shadow .2s,background .2s}
+button:hover:not(:disabled){transform:translateY(-1px)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #ffb703;outline-offset:3px}
+.primary{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;box-shadow:0 8px 20px rgba(36,87,245,.35)}
+.soft{background:#fff;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line)}
+.soft[aria-pressed="true"]{background:#efe9ff;box-shadow:inset 0 0 0 1.5px var(--brand2);color:#4b1fb8}
+/* topo */
+.top{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;padding:26px 5vw 0}
+.brand{font-size:22px;font-weight:800;letter-spacing:-.02em}
+.brand small{display:block;font-weight:500;color:var(--muted);font-size:15px;letter-spacing:0}
+.tabs{display:flex;gap:6px;background:#fff;padding:6px;border-radius:999px;box-shadow:var(--shadow)}
+.tab{background:transparent;color:var(--muted);padding:10px 22px}
+.tab[aria-selected="true"]{background:var(--ink);color:#fff}
+.tools{display:flex;gap:10px}
+main{padding:30px 5vw 90px}
+.panel[hidden]{display:none}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:34px}
+/* cenários */
+.scen{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:36px}
+.pill{background:#fff;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line);padding:14px 22px;display:flex;gap:10px;align-items:center}
+.pill.on{box-shadow:inset 0 0 0 2px var(--brand);background:#eef2ff;color:var(--brand)}
+/* linha do tempo */
+.tl{position:relative;display:grid;grid-template-columns:repeat(9,1fr);padding:24px 0 8px;margin-bottom:34px;min-width:880px}
+.tlwrap{overflow-x:auto;padding:0 4px}
+.tl-line{position:absolute;left:5.55%;right:5.55%;top:62px;height:6px;border-radius:6px;background:var(--line)}
+.tl-fill{height:100%;width:0;border-radius:6px;background:linear-gradient(90deg,var(--brand),var(--brand2));transition:width .9s cubic-bezier(.4,.1,.2,1);position:relative}
+.tl-fill::after{content:"";position:absolute;right:-9px;top:50%;width:18px;height:18px;margin-top:-9px;border-radius:50%;background:#fff;border:5px solid var(--brand2);box-shadow:0 0 0 8px rgba(122,60,255,.18)}
+.node{position:relative;text-align:center;opacity:.5;transition:all .45s}
+.dot{width:76px;height:76px;margin:0 auto;border-radius:50%;background:#fff;box-shadow:0 8px 22px rgba(16,24,40,.12);display:grid;place-items:center;font-size:32px;transition:all .45s}
+.lab{margin-top:12px;font-weight:600;font-size:16px}
+.node.active{opacity:1}.node.active .dot{transform:scale(1.16);box-shadow:0 0 0 8px rgba(36,87,245,.16),0 12px 28px rgba(36,87,245,.35)}
+.node.done{opacity:1}.node.done .dot{background:#e8f8ef}
+.node.skip{opacity:.18}
+body.showai .node.isai .dot{box-shadow:0 0 0 5px rgba(122,60,255,.35),0 8px 22px rgba(16,24,40,.12)}
+body.showai .node.isai::after{content:"IA";position:absolute;top:-6px;left:50%;margin-left:14px;background:var(--brand2);color:#fff;border-radius:999px;font-size:12px;font-weight:700;padding:2px 8px}
+/* foco + ticket */
+.grid2{display:grid;grid-template-columns:1.25fr 1fr;gap:28px}
+@media(max-width:980px){.grid2{grid-template-columns:1fr}}
+.focus{display:flex;gap:26px;align-items:center;min-height:240px}
+.fico{width:110px;height:110px;flex:none;border-radius:32px;background:linear-gradient(135deg,#eef2ff,#f1e9ff);display:grid;place-items:center;font-size:54px}
+.ftitle{font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
+.ftext{margin-top:10px;font-size:22px;color:var(--muted)}
+.ftag{display:none;margin-bottom:10px;font-size:14px;font-weight:700;background:#efe9ff;color:#4b1fb8;padding:3px 12px;border-radius:999px}
+.ftag.on{display:inline-block}
+.ticket h3{margin:0 0 18px;font-size:20px;display:flex;justify-content:space-between;align-items:center}
+.f{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-top:1px solid var(--line)}
+.f span{color:var(--muted);font-size:15px}.f b{text-align:right;font-weight:600;font-size:17px}
+.chip{display:inline-block;padding:3px 14px;border-radius:999px;font-weight:700;font-size:16px;background:var(--line)}
+.p1{background:#fbd3cd}.p2{background:#ffe0b3}.p3{background:#fff0b3}.p4{background:#d3f0dc}
+.chip.ok{background:#d3f0dc;color:#0b6b36}.chip.warn{background:#ffe9c2;color:#8a5200}.chip.bad{background:#fbd3cd;color:#a02214}
+.actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:36px}
+details.drawer{margin:28px auto 0;max-width:760px;background:#fff;border-radius:20px;box-shadow:var(--shadow);padding:6px 24px}
+summary{cursor:pointer;padding:14px 0;font-weight:600;color:var(--muted)}
+.sl{display:grid;grid-template-columns:1fr 1fr;gap:28px;padding:6px 0 22px}
+@media(max-width:700px){.sl{grid-template-columns:1fr}}
+.sl label{font-weight:600;display:block}.sl b{color:var(--brand)}
+input[type=range]{width:100%;accent-color:var(--brand);margin-top:10px}
+/* prioridade */
+.center{max-width:900px;margin:0 auto;text-align:center}
+.center h2{font-size:34px;letter-spacing:-.02em;margin:0 0 8px}.center p{color:var(--muted);margin:0 0 30px;font-size:20px}
+.mx{display:grid;grid-template-columns:auto repeat(3,1fr);gap:12px;align-items:stretch}
+.mx .h{color:var(--muted);font-weight:600;font-size:16px;display:grid;place-items:center;padding:4px 10px}
+.cell{border-radius:22px;padding:30px 10px;font-weight:800;font-size:24px;color:var(--ink);box-shadow:none}
+.cell small{display:block;font-weight:600;font-size:15px;opacity:.75}
+.cell.hl{box-shadow:0 0 0 4px var(--ink);transform:scale(1.04)}
+.cad{margin-top:34px;font-size:28px;font-weight:700;min-height:44px}
+/* simulação */
+.big{display:flex;gap:16px;justify-content:center;margin:26px 0}
+.num{background:#fff;border-radius:26px;box-shadow:var(--shadow);padding:26px 40px;min-width:210px}
+.num b{display:block;font-size:56px;line-height:1.05;letter-spacing:-.03em}.num span{color:var(--muted)}
+.bar{height:46px;border-radius:999px;overflow:hidden;display:flex;background:var(--line);margin:8px auto 0;max-width:860px}
+.bar span{display:grid;place-items:center;color:#fff;font-weight:700;font-size:16px;transition:width 1s}
+.note{color:var(--muted);font-size:15px;margin-top:22px}
+.cap{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);width:min(920px,92vw);background:rgba(16,24,40,.92);color:#fff;border-radius:20px;padding:14px 22px;font-size:20px;line-height:1.4;z-index:10;text-align:center;backdrop-filter:blur(6px)}
+.cap[hidden]{display:none}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.cr{max-width:1100px;margin:30px auto 90px;padding:0 5vw;color:#667085;font:15px/1.5 -apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.cr summary{cursor:pointer;font-weight:700;color:#101828;padding:10px 0}
+.cr dl{display:grid;grid-template-columns:230px 1fr;gap:8px 18px;margin:8px 0}
+.cr dt{font-weight:700;color:#101828}.cr dd{margin:0}
+@media(max-width:700px){.cr dl{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">Atendimento com IA<small>Uma chamada, do princípio ao fim</small></div>
+  <nav class="tabs" role="tablist" aria-label="Secções">
+    <button class="tab" role="tab" data-t="call" aria-selected="true">Chamada</button>
+    <button class="tab" role="tab" data-t="prio" aria-selected="false">Prioridade</button>
+    <button class="tab" role="tab" data-t="sim" aria-selected="false">Simulação</button>
+  </nav>
+  <div class="tools">
+    <button class="soft" id="ai" aria-pressed="false">✨ Onde a IA atua</button>
+    <button class="soft" id="narr" aria-pressed="false">🔊 Narração</button>
+  </div>
+</header>
+
+<main>
+<section class="panel" id="tab-call" role="tabpanel">
+  <div class="scen" id="scen" role="group" aria-label="Cenários"></div>
+  <div class="tlwrap"><div class="tl" id="tl"><div class="tl-line"><div class="tl-fill" id="fill"></div></div></div></div>
+  <div class="grid2">
+    <div class="card focus" aria-live="polite">
+      <div class="fico" id="fico">📞</div>
+      <div><span class="ftag" id="ftag">IA atua aqui</span><div class="ftitle" id="ftitle">Escolhe um cenário</div><div class="ftext" id="ftext">Depois carrega em «Executar».</div></div>
+    </div>
+    <div class="card ticket" aria-label="Ticket criado automaticamente">
+      <h3>🎫 Ticket <span class="chip" id="f-est">—</span></h3>
+      <div class="f"><span>Cliente</span><b id="f-cli">—</b></div>
+      <div class="f"><span>Resumo</span><b id="f-res">—</b></div>
+      <div class="f"><span>Categoria</span><b id="f-cat">—</b></div>
+      <div class="f"><span>Sentimento</span><b id="f-sen">—</b></div>
+      <div class="f"><span>Impacto · Urgência</span><b id="f-iu">—</b></div>
+      <div class="f"><span>Prioridade</span><b><span class="chip" id="f-pri">—</span></b></div>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="primary" id="run">▶ Executar</button>
+    <button class="soft" id="demo">🎬 Demonstração automática</button>
+  </div>
+  <details class="drawer">
+    <summary>⚙ Ajustes</summary>
+    <div class="sl">
+      <label>Confiança mínima do agente virtual: <b id="tv">70</b> %<input type="range" id="thr" min="30" max="95" value="70"></label>
+      <label>Limiar de Major Incident: <b id="mv">200</b> % do volume<input type="range" id="maj" min="120" max="400" step="10" value="200"></label>
+    </div>
+  </details>
+</section>
+
+<section class="panel" id="tab-prio" role="tabpanel" hidden>
+  <div class="center">
+    <h2>Como se decide a prioridade</h2>
+    <p>Impacto e urgência. Carrega numa célula.</p>
+    <div class="mx" id="mx"></div>
+    <div class="cad" id="cad">&nbsp;</div>
+  </div>
+</section>
+
+<section class="panel" id="tab-sim" role="tabpanel" hidden>
+  <div class="center">
+    <h2>Quem atende as chamadas?</h2>
+    <p>100 chamadas aleatórias, com a confiança mínima definida nos ajustes. Meta do grupo: cerca de 70/30.</p>
+    <button class="primary" id="sim">Simular 100 chamadas</button>
+    <div class="big"><div class="num"><b id="nv">—</b><span>agente virtual</span></div><div class="num"><b id="nh">—</b><span>pessoas</span></div></div>
+    <div class="bar" id="bar" aria-hidden="true"><span id="bv" style="width:0%;background:var(--brand)"></span><span id="bh" style="width:0%;background:var(--warn)"></span></div>
+    <div class="note">Simulação ilustrativa, com valores aleatórios. Não é um resultado nem uma previsão.</div>
+  </div>
+</section>
+</main>
+<div class="cap" id="cap" hidden role="status" aria-live="polite"></div>
+
+<section class="cr" aria-label="Créditos e fontes">
+  <details>
+  <summary>Créditos e fontes</summary>
+  <dl>
+    <dt>Conteúdo da solução</dt><dd>Documento do Grupo 2, «Integração de IA em Call Centers, em Contexto Bancário» (TAIA, ISCTE, 2026/2027): fluxo da chamada, ticket automático, rácio de cerca de 70/30, notificações P1 a P4 (1 h, 4 h, 24 h, 48 h), Major Incident acima de 200 % do volume normal e questionário de 1 a 5.</dd>
+    <dt>Matriz de prioridade</dt><dd>Impacto × urgência: Trabalho 1 do grupo, «Priorização de Incidentes de IT num Contexto Bancário» (B. Ferreira e J. Pereira, 27/09/2026).</dd>
+    <dt>Referencial ITIL</dt><dd>Gestão de incidentes, de problemas e da mudança: PeopleCert (s.d.). ITIL Foundation (Version 5): What's new guide. https://www.itil.com/Itil-News-and-Announcements/itil-version-5-foundation-whats-new-guide</dd>
+    <dt>Narração e legendas</dt><dd>Voz: síntese de voz do macOS (voz Joana, pt-PT). Textos das legendas escritos com o Claude.</dd>
+    <dt>Desenvolvimento</dt><dd>Textos e código gerados com o Claude (Anthropic, modelo Sonnet 5.5), através do Claude Code, e revistos pelo grupo.</dd>
+    <dt>Dados</dt><dd>Todos os dados, clientes, tickets e artigos são fictícios. As simulações usam valores aleatórios e não são resultados nem previsões.</dd>
+    <dt>Técnica</dt><dd>Sem bibliotecas externas. Letras do sistema e ícones em emojis do sistema.</dd>
+  </dl>
+  </details>
+</section>
+<script>
+const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = id => document.getElementById(id);
+const wait = ms => new Promise(r => setTimeout(r, reduce ? 0 : ms));
+
+/* ---------- narração (voz gravada em audio/at + legendas) ---------- */
+const NARR = {
+  intro: 'Vamos acompanhar uma chamada ao banco, do princípio ao fim, e ver onde a inteligência artificial faz a diferença.',
+  sc_a: 'Primeiro cenário. O cliente quer saber o horário da agência. É um pedido simples e de baixo risco.',
+  sc_b: 'Segundo cenário. O cliente perdeu o cartão e suspeita de fraude. É uma situação de risco, que exige uma pessoa.',
+  sc_c: 'Terceiro cenário. O pedido do cliente é pouco claro, e o agente virtual não tem a certeza do que ele precisa.',
+  sc_d: 'Quarto cenário. O cliente pede para falar com uma pessoa, e esse pedido é sempre respeitado.',
+  sc_e: 'Quinto cenário. Muitos clientes reportam a mesma falha na aplicação, dentro da mesma hora.',
+  p1: 'O cliente liga para o banco.',
+  p2: 'O agente virtual identifica o cliente nas bases de dados do banco. Aqui, a inteligência artificial poupa ao operador a recolha inicial de dados.',
+  p3: 'A chamada é transcrita, e a inteligência artificial analisa o conteúdo e o sentimento, para manter uma conversa natural e adaptar o tom.',
+  p4: 'O agente virtual consulta a base de conhecimento. A resposta vem de artigos validados, e não da imaginação do modelo.',
+  p5: 'É criado o ticket no sistema de gestão de serviços, com o resumo, a categoria e a prioridade, calculada a partir do impacto e da urgência. É aqui que se evita a classificação manual errada.',
+  p7: 'No fim, o cliente responde a um breve questionário de satisfação, de um a cinco.',
+  p8: 'Se o ticket não ficar resolvido, o cliente recebe notificações automáticas. A frequência depende da prioridade: quanto mais crítica, mais frequente.',
+  p9: 'A inteligência artificial deteta o pico de pedidos iguais e abre o incidente grave, antes de alguém o notar. Se for preciso, são criados o problema e o pedido de mudança.',
+  d_ok: 'A confiança está acima do mínimo definido. O agente virtual resolve com a base de conhecimento, e o ticket pode ser fechado automaticamente.',
+  d_risco: 'Por ser uma situação de risco, o ticket é encaminhado de imediato para a equipa responsável.',
+  d_humano: 'O cliente pediu uma pessoa. A chamada passa para a fila da primeira linha, com o ticket e o resumo já criados.',
+  d_baixa: 'A confiança está abaixo do mínimo. Em caso de dúvida, o pedido vai para um agente humano de primeira linha, que analisa e atribui o ticket.',
+  d_major: 'O volume está acima do limiar definido. É criado um incidente grave de prioridade crítica, e os tickets seguintes ficam associados.',
+  d_majorno: 'O volume está abaixo do limiar. Não é criado um incidente grave, e o ticket segue o fluxo normal.',
+  ai_on: 'Os distintivos roxos mostram os momentos em que a inteligência artificial atua: identificar, perceber, consultar, classificar e detetar padrões.',
+  m_P1: 'Prioridade um, crítica. O cliente recebe notificações a cada hora.',
+  m_P2: 'Prioridade dois, alta. O cliente recebe notificações a cada quatro horas.',
+  m_P3: 'Prioridade três, média. O cliente recebe notificações a cada vinte e quatro horas.',
+  m_P4: 'Prioridade quatro, baixa. O cliente recebe notificações a cada quarenta e oito horas.',
+  sim: 'A simulação usa chamadas aleatórias, só para ilustrar. Quanto mais alta a confiança mínima, mais chamadas passam para as pessoas.',
+  fim: 'Fim da demonstração. Podem mexer nos limiares e voltar a executar.'
+};
+let narrOn = false, curAudio = null, curDone = null;
+const cap = $('cap');
+function stopNarr(){
+  if (curAudio){ curAudio.pause(); curAudio = null; }
+  if (curDone){ const d = curDone; curDone = null; d(); }
+  cap.hidden = true;
+}
+function say(id, ms){
+  stopNarr();
+  const text = NARR[id];
+  if (!narrOn || !text) return wait(ms);
+  cap.textContent = text; cap.hidden = false;
+  return new Promise(res => {
+    const a = new Audio('audio/at/' + id + '.m4a'); curAudio = a;
+    let fin = false, tm = null;
+    const done = () => { if (fin) return; fin = true; clearTimeout(tm); if (curDone === done) curDone = null; setTimeout(res, reduce ? 0 : 350); };
+    curDone = done;
+    const fall = Math.max(2500, text.length * 60);
+    tm = setTimeout(done, 60000);
+    a.addEventListener('ended', done);
+    a.addEventListener('error', () => setTimeout(done, fall));
+    a.play().catch(() => setTimeout(done, fall));
+  });
+}
+$('narr').addEventListener('click', e => {
+  narrOn = !narrOn; e.currentTarget.setAttribute('aria-pressed', narrOn);
+  if (narrOn) say('intro', 0); else stopNarr();
+});
+
+/* ---------- dados ---------- */
+const steps = [
+  {id:1, ico:'📞', lab:'Liga',      title:'O cliente liga',          text:'Chamada recebida no contact center.', ai:false},
+  {id:2, ico:'🪪', lab:'Identifica', title:'Identifica o cliente',    text:'Reconhece-o nas bases do banco.', ai:true},
+  {id:3, ico:'🎧', lab:'Compreende', title:'Ouve e compreende',       text:'Transcreve e analisa o sentimento.', ai:true},
+  {id:4, ico:'📚', lab:'Consulta',   title:'Consulta o conhecimento', text:'Responde com artigos validados.', ai:true},
+  {id:5, ico:'🎫', lab:'Ticket',     title:'Cria o ticket',           text:'Resumo, categoria e prioridade.', ai:true},
+  {id:6, ico:'🔀', lab:'Decide',     title:'Decide o caminho',        text:'', ai:false},
+  {id:7, ico:'⭐', lab:'Avalia',     title:'Questionário',            text:'O cliente avalia de 1 a 5.', ai:false},
+  {id:8, ico:'🔔', lab:'Notifica',   title:'Notificações',            text:'', ai:false},
+  {id:9, ico:'🚨', lab:'Deteta',     title:'Incidente grave',         text:'Pico de pedidos iguais detetado.', ai:true}
+];
+const matrix = {Alta:['P1','P2','P3'], Média:['P2','P3','P4'], Baixa:['P3','P4','P4']};
+const imp = ['Toda a organização','Alguns de nós','Só eu'];
+const cadence = {P1:'a cada 1 hora', P2:'a cada 4 horas', P3:'a cada 24 horas', P4:'a cada 48 horas'};
+const names = {P1:'Crítica', P2:'Alta', P3:'Média', P4:'Baixa'};
+const scenarios = [
+  {id:'a', ico:'🕘', t:'Horários', cli:'Cliente A', res:'Horário da agência', cat:'Pedido', sen:'Neutro', i:2, u:'Baixa', conf:95, kind:'normal', steps:[1,2,3,4,5,6,7]},
+  {id:'b', ico:'💳', t:'Cartão roubado', cli:'Cliente B', res:'Cartão roubado', cat:'Incidente · fraude', sen:'Insatisfeito', i:1, u:'Alta', conf:90, kind:'risco', steps:[1,2,3,4,5,6,8]},
+  {id:'c', ico:'❓', t:'Pedido pouco claro', cli:'Cliente C', res:'Pedido ambíguo', cat:'Por confirmar', sen:'Neutro', i:2, u:'Média', conf:52, kind:'normal', steps:[1,2,3,4,5,6,7]},
+  {id:'d', ico:'🙋', t:'Quer uma pessoa', cli:'Cliente D', res:'Pede atendimento humano', cat:'Pedido', sen:'Neutro', i:2, u:'Média', conf:80, kind:'humano', steps:[1,2,3,5,6,7]},
+  {id:'e', ico:'⚠️', t:'Falha na app', cli:'Cliente E', res:'App indisponível', cat:'Incidente · aplicação', sen:'Insatisfeito', i:0, u:'Alta', conf:85, kind:'major', vol:260, steps:[1,2,3,4,5,6,8,9]}
+];
+let cur = scenarios[0], running = false;
+
+/* ---------- construção ---------- */
+const scen = $('scen');
+scenarios.forEach(s => { const b = document.createElement('button'); b.type = 'button'; b.className = 'pill'; b.dataset.id = s.id;
+  b.innerHTML = `<span>${s.ico}</span><span>${s.t}</span>`;
+  b.addEventListener('click', () => { if (!running) choose(s); }); scen.appendChild(b); });
+const tl = $('tl');
+steps.forEach(s => { const n = document.createElement('div'); n.className = 'node' + (s.ai ? ' isai' : ''); n.id = 'n' + s.id;
+  n.innerHTML = `<div class="dot">${s.ico}</div><div class="lab">${s.lab}</div>`; tl.appendChild(n); });
+
+function setFocus(ico, title, text, ai){
+  $('fico').textContent = ico; $('ftitle').textContent = title; $('ftext').textContent = text; $('ftag').classList.toggle('on', !!ai);
+}
+function setPri(p){ const el = $('f-pri'); el.textContent = p ? p + ' ' + names[p] : '—'; el.className = 'chip' + (p ? ' ' + p.toLowerCase() : ''); }
+function setEst(t, cls){ const el = $('f-est'); el.textContent = t; el.className = 'chip' + (cls ? ' ' + cls : ''); }
+function reset(){
+  steps.forEach(s => $('n' + s.id).className = 'node' + (s.ai ? ' isai' : ''));
+  $('fill').style.width = '0%';
+  ['cli','res','cat','sen','iu'].forEach(k => $('f-' + k).textContent = '—'); setPri(null); setEst('—', '');
+}
+function hl(s){ document.querySelectorAll('.cell').forEach(c => c.classList.remove('hl')); const c = document.querySelector(`.cell[data-i="${s.i}"][data-u="${s.u}"]`); if (c) c.classList.add('hl'); }
+function choose(s, speak = true){
+  cur = s; [...scen.children].forEach(b => b.classList.toggle('on', b.dataset.id === s.id));
+  reset(); hl(s); setFocus(s.ico, s.t, 'Carrega em «Executar».', false);
+  if (speak) say('sc_' + s.id, 0);
+}
+function decide(s){
+  const thr = +$('thr').value, maj = +$('maj').value;
+  if (s.kind === 'humano') return {key:'d_humano', txt:'Passa a uma pessoa, com o ticket já criado.', est:'1.ª linha', cls:'warn'};
+  if (s.kind === 'risco') return {key:'d_risco', txt:'Risco: escalado de imediato à equipa.', est:'Escalado', cls:'bad'};
+  if (s.kind === 'major'){
+    if (s.vol >= maj) return {key:'d_major', txt:`Volume a ${s.vol} %, acima de ${maj} %: Major Incident.`, est:'Major Incident', cls:'bad', major:true};
+    return {key:'d_majorno', txt:`Volume a ${s.vol} %, abaixo de ${maj} %: fluxo normal.`, est:'Equipa', cls:'warn'};
+  }
+  if (s.conf >= thr) return {key:'d_ok', txt:`Confiança ${s.conf} %: resolve e fecha o ticket.`, est:'Resolvido', cls:'ok'};
+  return {key:'d_baixa', txt:`Confiança ${s.conf} % (mínimo ${thr} %): passa à 1.ª linha.`, est:'1.ª linha', cls:'warn'};
+}
+
+/* ---------- execução ---------- */
+async function run(){
+  if (running) return; running = true; $('run').disabled = true; $('demo').disabled = true;
+  const s = cur, dec = decide(s); reset(); hl(s);
+  const effPri = dec.major ? 'P1' : matrix[s.u][s.i];
+  for (let k = 0; k < steps.length; k++){
+    const st = steps[k], el = $('n' + st.id);
+    if (!s.steps.includes(st.id)){ el.classList.add('skip'); continue; }
+    el.classList.add('active'); $('fill').style.width = (k / (steps.length - 1) * 100) + '%';
+    let text = st.text;
+    if (st.id === 6) text = dec.txt;
+    if (st.id === 8) text = `${effPri}: atualizações ${cadence[effPri]}.`;
+    setFocus(st.ico, st.title, text, st.ai);
+    if (st.id === 2) $('f-cli').textContent = s.cli;
+    if (st.id === 3){ $('f-res').textContent = s.res; $('f-sen').textContent = s.sen; }
+    if (st.id === 4) $('f-cat').textContent = s.cat;
+    if (st.id === 5){ $('f-iu').textContent = imp[s.i] + ' · ' + s.u; setPri(effPri); setEst('Aberto', ''); }
+    if (st.id === 6) setEst(dec.est, dec.cls);
+    await say(st.id === 6 ? dec.key : 'p' + st.id, 1600);
+    el.classList.remove('active'); el.classList.add('done');
+  }
+  running = false; $('run').disabled = false; $('demo').disabled = false;
+}
+$('run').addEventListener('click', run);
+$('demo').addEventListener('click', async () => {
+  for (const s of scenarios){ choose(s, false); await say('sc_' + s.id, 800); await run(); await wait(1500); }
+  setFocus('🎬', 'Fim da demonstração', 'Mexe nos ajustes e volta a executar.', false); say('fim', 0);
+});
+$('ai').addEventListener('click', e => { const on = document.body.classList.toggle('showai'); e.currentTarget.setAttribute('aria-pressed', on); if (on) say('ai_on', 0); });
+$('thr').addEventListener('input', e => $('tv').textContent = e.target.value);
+$('maj').addEventListener('input', e => $('mv').textContent = e.target.value);
+
+/* ---------- separadores ---------- */
+function show(id){
+  ['call','prio','sim'].forEach(k => { $('tab-' + k).hidden = k !== id; document.querySelector(`.tab[data-t="${k}"]`).setAttribute('aria-selected', k === id); });
+}
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => show(t.dataset.t)));
+
+/* ---------- matriz ---------- */
+const mx = $('mx');
+mx.appendChild(Object.assign(document.createElement('div'), {className:'h', textContent:'Urgência \\ Impacto'}));
+imp.forEach(t => mx.appendChild(Object.assign(document.createElement('div'), {className:'h', textContent:t})));
+Object.keys(matrix).forEach(u => {
+  mx.appendChild(Object.assign(document.createElement('div'), {className:'h', textContent:u}));
+  matrix[u].forEach((p, i) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'cell ' + p.toLowerCase(); b.dataset.i = i; b.dataset.u = u;
+    b.innerHTML = `${p}<small>${names[p]}</small>`;
+    b.addEventListener('click', () => { document.querySelectorAll('.cell').forEach(c => c.classList.remove('hl')); b.classList.add('hl');
+      $('cad').textContent = `${p} · notificações ${cadence[p]}`; say('m_' + p, 0); });
+    mx.appendChild(b); });
+});
+
+/* ---------- simulação ---------- */
+$('sim').addEventListener('click', () => {
+  say('sim', 0);
+  const thr = +$('thr').value; let v = 0, h = 0;
+  for (let k = 0; k < 100; k++){
+    const r = Math.random();
+    if (r < 0.08) { h++; continue; }
+    if (r < 0.18) { h++; continue; }
+    const conf = 40 + 60 * Math.sqrt(Math.random());
+    if (conf >= thr) v++; else h++;
+  }
+  $('nv').textContent = v + ' %'; $('nh').textContent = h + ' %';
+  $('bv').style.width = v + '%'; $('bh').style.width = h + '%';
+});
+choose(scenarios[0], false);
+</script>
+</body>
+</html>

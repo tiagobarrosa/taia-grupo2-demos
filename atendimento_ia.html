@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<script src="acesso.js"></script>
+<!--
+CRÉDITOS E FONTES
+- Conteúdo da solução: Documento do Grupo 2, «Integração de IA em Call Centers, em Contexto Bancário» (TAIA, ISCTE, 2026/2027): fluxo da chamada, ticket automático, rácio de cerca de 70/30, notificações P1 a P4 (1 h, 4 h, 24 h, 48 h), Major Incident acima de 200 % do volume normal e questionário de 1 a 5.
+- Matriz de prioridade: Impacto × urgência: Trabalho 1 do grupo, «Priorização de Incidentes de IT num Contexto Bancário» (B. Ferreira e J. Pereira, 27/09/2026).
+- Referencial ITIL: Gestão de incidentes, de problemas e da mudança: PeopleCert (s.d.). ITIL Foundation (Version 5): What's new guide. https://www.itil.com/Itil-News-and-Announcements/itil-version-5-foundation-whats-new-guide
+- Narração e legendas: Voz: síntese de voz do macOS (voz Joana, pt-PT). Textos das legendas escritos com o Claude.
+- Desenvolvimento: Textos e código gerados com o Claude (Anthropic, modelo Sonnet 5.5), através do Claude Code, e revistos pelo grupo.
+- Dados: Todos os dados, clientes, tickets e artigos são fictícios. As simulações usam valores aleatórios e não são resultados nem previsões.
+- Técnica: Sem bibliotecas externas. Letras do sistema e ícones em emojis do sistema.
+-->
+
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atendimento com IA</title>
+<style>
+:root{
+  --bg:#f5f7fb; --card:#ffffff; --ink:#14213d; --muted:#5b6784; --line:#d6dcea;
+  --brand:#1b4fd8; --brand-soft:#e4ebff; --ok:#14804a; --ok-soft:#dff5e8;
+  --warn:#b45309; --warn-soft:#fff1d6; --bad:#b42318; --bad-soft:#fde4e1; --ai:#7a3cff; --ai-soft:#efe6ff;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.5 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header{padding:28px 6vw 8px}
+h1{margin:0 0 6px;font-size:clamp(28px,4vw,44px)}
+header p{margin:0;color:var(--muted);max-width:72ch}
+main{padding:12px 6vw 60px;display:grid;gap:28px}
+section{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:24px}
+h2{margin:0 0 4px;font-size:clamp(22px,2.6vw,30px)}
+.sub{color:var(--muted);margin:0 0 16px}
+button{font:inherit;cursor:pointer;border:1px solid var(--brand);background:var(--brand);color:#fff;border-radius:12px;padding:10px 18px}
+button.ghost{background:#fff;color:var(--brand)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #ffb703;outline-offset:2px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.tag{display:inline-block;font-size:14px;border-radius:999px;padding:2px 10px;font-weight:600}
+.tag.ai{background:var(--ai-soft);color:var(--ai)} .tag.blue{background:var(--brand-soft);color:var(--brand)}
+.tag.ok{background:var(--ok-soft);color:var(--ok)} .tag.warn{background:var(--warn-soft);color:var(--warn)} .tag.bad{background:var(--bad-soft);color:var(--bad)}
+/* cenários */
+.scen{display:flex;gap:10px;flex-wrap:wrap}
+.scen button{background:#fff;color:var(--ink);border:2px solid var(--line)}
+.scen button.on{border-color:var(--brand);background:var(--brand-soft)}
+.sliders{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:14px 0}
+@media(max-width:900px){.sliders,.layout,.cols{grid-template-columns:1fr}}
+.sliders label{display:block;font-weight:600}
+input[type=range]{width:100%;accent-color:var(--brand)}
+.layout{display:grid;grid-template-columns:1.5fr 1fr;gap:20px}
+/* fluxo */
+.flow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:700px){.flow{grid-template-columns:1fr}}
+.step{position:relative;border:2px solid var(--line);border-radius:14px;padding:10px 12px;background:#fff;opacity:.45;transition:all .45s}
+.step .who{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.step .name{font-weight:700}
+.step.skip{opacity:.18}
+.step.active{opacity:1;border-color:var(--brand);background:var(--brand-soft);transform:scale(1.03);box-shadow:0 6px 18px rgba(27,79,216,.25)}
+.step.done{opacity:1;border-color:var(--ok)}
+.step .badge{display:none;position:absolute;top:-10px;right:10px}
+body.showai .step.isai .badge{display:inline-block;animation:pulse 1.4s infinite}
+body.showai .step.isai{border-color:var(--ai);opacity:1}
+@keyframes pulse{50%{transform:scale(1.15)}}
+.outcome{margin-top:14px;padding:14px 16px;border-radius:14px;background:var(--bg);border-left:6px solid var(--brand);min-height:70px}
+/* ticket */
+.ticket{border:2px solid var(--line);border-radius:16px;padding:14px;background:#fff}
+.ticket h3{margin:0 0 8px;font-size:20px}
+.ticket dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:4px 12px}
+.ticket dt{color:var(--muted)} .ticket dd{margin:0;font-weight:600;min-height:1.4em}
+/* matriz */
+.mx{display:grid;grid-template-columns:auto repeat(3,1fr);gap:6px;max-width:560px}
+.mx div{padding:10px 8px;text-align:center;border-radius:10px;font-weight:600}
+.mx .h{background:transparent;color:var(--muted);font-size:15px}
+.cell{border:2px solid transparent;cursor:pointer;background:#fff;color:var(--ink);font:inherit;font-weight:700}
+.p1{background:#fbd5d0} .p2{background:#ffe2b8} .p3{background:#fff3b8} .p4{background:#d4f0dc}
+.cell.hl{border-color:var(--ink);transform:scale(1.06);box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.cad{margin-top:12px;font-size:20px;font-weight:700}
+/* simulação */
+.bar{height:34px;border-radius:12px;overflow:hidden;display:flex;background:var(--line);margin:10px 0}
+.bar span{display:grid;place-items:center;color:#fff;font-weight:700;font-size:15px;transition:width 1s}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.note{color:var(--muted);font-size:15px}
+.cap{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);width:min(900px,92vw);background:rgba(20,33,61,.95);color:#fff;border-radius:14px;padding:12px 18px;font-size:20px;line-height:1.4;z-index:10;text-align:center}
+.cap[hidden]{display:none}
+footer{padding:0 6vw 40px;color:var(--muted);font-size:15px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.cr{max-width:1100px;margin:30px auto 90px;padding:0 5vw;color:#667085;font:15px/1.5 -apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.cr summary{cursor:pointer;font-weight:700;color:#101828;padding:10px 0}
+.cr dl{display:grid;grid-template-columns:230px 1fr;gap:8px 18px;margin:8px 0}
+.cr dt{font-weight:700;color:#101828}.cr dd{margin:0}
+@media(max-width:700px){.cr dl{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Como funciona o atendimento com IA</h1>
+  <p>Escolhe um cenário e vê o que o agente virtual faz, passo a passo, e em que momentos a IA é decisiva. Mexe nos limiares e vê as decisões mudarem.</p>
+  <div class="row" style="margin-top:12px"><button class="ghost" id="narr" aria-pressed="false">🔊 Narração: desligada</button></div>
+</header>
+<div class="cap" id="cap" hidden role="status" aria-live="polite"></div>
+
+<main>
+<section aria-labelledby="h1s">
+  <h2 id="h1s">1. Uma chamada, do princípio ao fim</h2>
+  <p class="sub">Escolhe um cenário. Cada cenário percorre um caminho diferente.</p>
+  <div class="scen" id="scen" role="group" aria-label="Cenários"></div>
+  <div class="sliders">
+    <label>Confiança mínima do agente virtual: <span id="tv">70</span> %
+      <input type="range" id="thr" min="30" max="95" value="70"></label>
+    <label>Limiar de Major Incident: <span id="mv">200</span> % do volume normal
+      <input type="range" id="maj" min="120" max="400" step="10" value="200"></label>
+  </div>
+  <div class="row">
+    <button id="run">▶ Executar cenário</button>
+    <button class="ghost" id="demo">🎬 Demonstração automática</button>
+    <button class="ghost" id="ai" aria-pressed="false">✨ Mostrar onde a IA atua</button>
+  </div>
+  <div class="layout">
+    <div>
+      <div class="flow" id="flow"></div>
+      <div class="outcome" id="out" role="status" aria-live="polite">Escolhe um cenário e carrega em «Executar».</div>
+    </div>
+    <div class="ticket" id="ticket" aria-label="Ticket criado automaticamente">
+      <h3>🎫 Ticket no ITSM</h3>
+      <dl>
+        <dt>Cliente</dt><dd id="f-cli">—</dd>
+        <dt>Resumo</dt><dd id="f-res">—</dd>
+        <dt>Categoria</dt><dd id="f-cat">—</dd>
+        <dt>Sentimento</dt><dd id="f-sen">—</dd>
+        <dt>Impacto / Urgência</dt><dd id="f-iu">—</dd>
+        <dt>Prioridade</dt><dd id="f-pri">—</dd>
+        <dt>Estado</dt><dd id="f-est">—</dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="h2s">
+  <h2 id="h2s">2. Como se decide a prioridade</h2>
+  <p class="sub">A prioridade resulta do impacto e da urgência. Carrega numa célula para ver a periodicidade das notificações ao cliente.</p>
+  <div class="mx" id="mx"></div>
+  <div class="cad" id="cad">Escolhe uma célula.</div>
+</section>
+
+<section aria-labelledby="h3s">
+  <h2 id="h3s">3. Quantas chamadas fica o agente virtual com?</h2>
+  <p class="sub">Simulação com chamadas aleatórias e a confiança mínima definida acima. A meta do grupo é um rácio de cerca de 70/30.</p>
+  <div class="row"><button id="sim">Simular 100 chamadas</button></div>
+  <div class="bar" id="bar" aria-hidden="true"><span id="bv" style="width:0%"></span><span id="bh" style="width:0%;background:var(--warn)"></span></div>
+  <div class="cols"><div id="simtxt" role="status" aria-live="polite">Carrega em «Simular».</div><div class="note">Simulação ilustrativa, com valores aleatórios: não é um resultado nem uma previsão. Serve para mostrar como a confiança mínima muda a divisão entre o agente virtual e as pessoas.</div></div>
+</section>
+</main>
+<footer>Material de apoio à apresentação. Os cenários, os clientes e os valores são fictícios e servem só para demonstrar o funcionamento.</footer>
+
+<section class="cr" aria-label="Créditos e fontes">
+  <details>
+  <summary>Créditos e fontes</summary>
+  <dl>
+    <dt>Conteúdo da solução</dt><dd>Documento do Grupo 2, «Integração de IA em Call Centers, em Contexto Bancário» (TAIA, ISCTE, 2026/2027): fluxo da chamada, ticket automático, rácio de cerca de 70/30, notificações P1 a P4 (1 h, 4 h, 24 h, 48 h), Major Incident acima de 200 % do volume normal e questionário de 1 a 5.</dd>
+    <dt>Matriz de prioridade</dt><dd>Impacto × urgência: Trabalho 1 do grupo, «Priorização de Incidentes de IT num Contexto Bancário» (B. Ferreira e J. Pereira, 27/09/2026).</dd>
+    <dt>Referencial ITIL</dt><dd>Gestão de incidentes, de problemas e da mudança: PeopleCert (s.d.). ITIL Foundation (Version 5): What's new guide. https://www.itil.com/Itil-News-and-Announcements/itil-version-5-foundation-whats-new-guide</dd>
+    <dt>Narração e legendas</dt><dd>Voz: síntese de voz do macOS (voz Joana, pt-PT). Textos das legendas escritos com o Claude.</dd>
+    <dt>Desenvolvimento</dt><dd>Textos e código gerados com o Claude (Anthropic, modelo Sonnet 5.5), através do Claude Code, e revistos pelo grupo.</dd>
+    <dt>Dados</dt><dd>Todos os dados, clientes, tickets e artigos são fictícios. As simulações usam valores aleatórios e não são resultados nem previsões.</dd>
+    <dt>Técnica</dt><dd>Sem bibliotecas externas. Letras do sistema e ícones em emojis do sistema.</dd>
+  </dl>
+  </details>
+</section>
+<script>
+const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = id => document.getElementById(id);
+const wait = ms => new Promise(r => setTimeout(r, reduce ? 0 : ms));
+
+/* ---------- narração (voz gravada em audio/at + legendas) ---------- */
+const NARR = {
+  intro: 'Vamos acompanhar uma chamada ao banco, do princípio ao fim, e ver onde a inteligência artificial faz a diferença.',
+  sc_a: 'Primeiro cenário. O cliente quer saber o horário da agência. É um pedido simples e de baixo risco.',
+  sc_b: 'Segundo cenário. O cliente perdeu o cartão e suspeita de fraude. É uma situação de risco, que exige uma pessoa.',
+  sc_c: 'Terceiro cenário. O pedido do cliente é pouco claro, e o agente virtual não tem a certeza do que ele precisa.',
+  sc_d: 'Quarto cenário. O cliente pede para falar com uma pessoa, e esse pedido é sempre respeitado.',
+  sc_e: 'Quinto cenário. Muitos clientes reportam a mesma falha na aplicação, dentro da mesma hora.',
+  p1: 'O cliente liga para o banco.',
+  p2: 'O agente virtual identifica o cliente nas bases de dados do banco. Aqui, a inteligência artificial poupa ao operador a recolha inicial de dados.',
+  p3: 'A chamada é transcrita, e a inteligência artificial analisa o conteúdo e o sentimento, para manter uma conversa natural e adaptar o tom.',
+  p4: 'O agente virtual consulta a base de conhecimento. A resposta vem de artigos validados, e não da imaginação do modelo.',
+  p5: 'É criado o ticket no sistema de gestão de serviços, com o resumo, a categoria e a prioridade, calculada a partir do impacto e da urgência. É aqui que se evita a classificação manual errada.',
+  p7: 'No fim, o cliente responde a um breve questionário de satisfação, de um a cinco.',
+  p8: 'Se o ticket não ficar resolvido, o cliente recebe notificações automáticas. A frequência depende da prioridade: quanto mais crítica, mais frequente.',
+  p9: 'A inteligência artificial deteta o pico de pedidos iguais e abre o incidente grave, antes de alguém o notar. Se for preciso, são criados o problema e o pedido de mudança.',
+  d_ok: 'A confiança está acima do mínimo definido. O agente virtual resolve com a base de conhecimento, e o ticket pode ser fechado automaticamente.',
+  d_risco: 'Por ser uma situação de risco, o ticket é encaminhado de imediato para a equipa responsável.',
+  d_humano: 'O cliente pediu uma pessoa. A chamada passa para a fila da primeira linha, com o ticket e o resumo já criados.',
+  d_baixa: 'A confiança está abaixo do mínimo. Em caso de dúvida, o pedido vai para um agente humano de primeira linha, que analisa e atribui o ticket.',
+  d_major: 'O volume está acima do limiar definido. É criado um incidente grave de prioridade crítica, e os tickets seguintes ficam associados.',
+  d_majorno: 'O volume está abaixo do limiar. Não é criado um incidente grave, e o ticket segue o fluxo normal.',
+  ai_on: 'Os distintivos roxos mostram os momentos em que a inteligência artificial atua: identificar, perceber, consultar, classificar e detetar padrões.',
+  m_P1: 'Prioridade um, crítica. O cliente recebe notificações a cada hora.',
+  m_P2: 'Prioridade dois, alta. O cliente recebe notificações a cada quatro horas.',
+  m_P3: 'Prioridade três, média. O cliente recebe notificações a cada vinte e quatro horas.',
+  m_P4: 'Prioridade quatro, baixa. O cliente recebe notificações a cada quarenta e oito horas.',
+  sim: 'A simulação usa chamadas aleatórias, só para ilustrar. Quanto mais alta a confiança mínima, mais chamadas passam para as pessoas.',
+  fim: 'Fim da demonstração. Podem mexer nos limiares e voltar a executar.'
+};
+let narrOn = false, curAudio = null, curDone = null;
+const cap = $('cap');
+function stopNarr(){
+  if (curAudio){ curAudio.pause(); curAudio = null; }
+  if (curDone){ const d = curDone; curDone = null; d(); }
+  cap.hidden = true;
+}
+function say(id, ms){
+  stopNarr();
+  const text = NARR[id];
+  if (!narrOn || !text) return wait(ms);
+  cap.textContent = text; cap.hidden = false;
+  return new Promise(res => {
+    const a = new Audio('audio/at/' + id + '.m4a'); curAudio = a;
+    let fin = false, tm = null;
+    const done = () => { if (fin) return; fin = true; clearTimeout(tm); if (curDone === done) curDone = null; setTimeout(res, reduce ? 0 : 350); };
+    curDone = done;
+    const fall = Math.max(2500, text.length * 60);
+    tm = setTimeout(done, 60000);
+    a.addEventListener('ended', done);
+    a.addEventListener('error', () => setTimeout(done, fall));
+    a.play().catch(() => setTimeout(done, fall));
+  });
+}
+$('narr').addEventListener('click', e => {
+  narrOn = !narrOn; e.currentTarget.setAttribute('aria-pressed', narrOn);
+  e.currentTarget.textContent = '🔊 Narração: ' + (narrOn ? 'ligada' : 'desligada');
+  if (narrOn) say('intro', 0); else stopNarr();
+});
+
+const steps = [
+  {id:1, who:'Cliente', name:'Liga para o banco', ai:false},
+  {id:2, who:'Agente virtual', name:'Identifica o cliente nas bases do banco', ai:true, why:'A IA identifica o cliente logo no início, sem o operador ter de perguntar.'},
+  {id:3, who:'Agente virtual', name:'Transcreve a chamada e analisa o conteúdo e o sentimento', ai:true, why:'A IA mantém uma conversa natural e adapta o tom ao contexto.'},
+  {id:4, who:'Agente virtual', name:'Consulta a base de conhecimento', ai:true, why:'A resposta vem de artigos validados, e não da imaginação do modelo.'},
+  {id:5, who:'ITSM', name:'Cria o ticket com resumo, categoria e prioridade', ai:true, why:'A IA preenche e classifica o ticket: é aqui que se evita a classificação manual errada.'},
+  {id:6, who:'Decisão', name:'Resolve, encaminha ou passa a uma pessoa', ai:false},
+  {id:7, who:'Cliente', name:'Responde ao questionário de 1 a 5', ai:false},
+  {id:8, who:'ITSM', name:'Envia notificações segundo a prioridade', ai:false},
+  {id:9, who:'ITSM', name:'Deteta Major Incident, abre Problema e Change', ai:true, why:'A IA vê o pico de pedidos iguais e cria o Major Incident antes de alguém o notar.'}
+];
+const matrix = {Alta:['P1','P2','P3'], Média:['P2','P3','P4'], Baixa:['P3','P4','P4']};
+const imp = ['Toda a organização','Alguns de nós','Só eu'];
+const cadence = {P1:'a cada 1 hora', P2:'a cada 4 horas', P3:'a cada 24 horas', P4:'a cada 48 horas'};
+const names = {P1:'Crítica', P2:'Alta', P3:'Média', P4:'Baixa'};
+
+const scenarios = [
+  {id:'a', t:'Horários da agência', cli:'Cliente A', res:'Pergunta sobre horários da agência', cat:'Pedido: informação', sen:'Neutro', i:2, u:'Baixa', conf:95, kind:'normal', steps:[1,2,3,4,5,6,7]},
+  {id:'b', t:'Cartão roubado', cli:'Cliente B', res:'Cartão roubado, quer bloqueá-lo', cat:'Incidente: cartão / fraude', sen:'Insatisfeito', i:1, u:'Alta', conf:90, kind:'risco', steps:[1,2,3,4,5,6,8]},
+  {id:'c', t:'Pedido pouco claro', cli:'Cliente C', res:'Pedido ambíguo, sem tema claro', cat:'(por confirmar)', sen:'Neutro', i:2, u:'Média', conf:52, kind:'normal', steps:[1,2,3,4,5,6,7]},
+  {id:'d', t:'Quer falar com uma pessoa', cli:'Cliente D', res:'Cliente pede atendimento humano', cat:'Pedido: atendimento', sen:'Neutro', i:2, u:'Média', conf:80, kind:'humano', steps:[1,2,3,5,6,7]},
+  {id:'e', t:'Falha na aplicação', cli:'Cliente E', res:'Aplicação indisponível, vários clientes afetados', cat:'Incidente: aplicação', sen:'Insatisfeito', i:0, u:'Alta', conf:85, kind:'major', vol:260, steps:[1,2,3,4,5,6,8,9]}
+];
+let cur = scenarios[0], running = false, token = 0;
+
+/* cenários */
+const scen = $('scen');
+scenarios.forEach(s => { const b = document.createElement('button'); b.type = 'button'; b.textContent = s.t; b.dataset.id = s.id;
+  b.addEventListener('click', () => { if (!running) choose(s); }); scen.appendChild(b); });
+function choose(s, speak = true){ cur = s; [...scen.children].forEach(b => b.classList.toggle('on', b.dataset.id === s.id)); reset(); $('out').textContent = 'Cenário: ' + s.t + '. Carrega em «Executar».'; hl(s); if (speak) say('sc_' + s.id, 0); }
+
+/* fluxo */
+const flow = $('flow');
+steps.forEach(s => { const d = document.createElement('div'); d.className = 'step' + (s.ai ? ' isai' : ''); d.id = 's' + s.id;
+  d.innerHTML = `<span class="tag ai badge">IA</span><div class="who">${s.id}. ${s.who}</div><div class="name">${s.name}</div>`; flow.appendChild(d); });
+function reset(){
+  steps.forEach(s => $('s' + s.id).className = 'step' + (s.ai ? ' isai' : ''));
+  ['cli','res','cat','sen','iu','pri','est'].forEach(k => $('f-' + k).textContent = '—');
+}
+function decide(s){
+  const thr = +$('thr').value, maj = +$('maj').value;
+  if (s.kind === 'humano') return {key:'d_humano', txt:'O cliente pediu uma pessoa. O agente virtual passa a chamada à fila da 1.ª linha, com o ticket e o resumo já criados.', est:'Atribuído à 1.ª linha (humano)', cls:'warn'};
+  if (s.kind === 'risco') return {key:'d_risco', txt:'Situação de risco (fraude). O ticket é encaminhado de imediato à equipa responsável, pela categoria atribuída.', est:'Escalado à equipa responsável', cls:'bad'};
+  if (s.kind === 'major') {
+    if (s.vol >= maj) return {key:'d_major', txt:`O volume está a ${s.vol} % do normal na última hora, acima do limiar de ${maj} %. É criado um Major Incident P1 e os tickets seguintes ficam associados.`, est:'Major Incident (P1)', cls:'bad', major:true};
+    return {key:'d_majorno', txt:`O volume está a ${s.vol} % do normal, abaixo do limiar de ${maj} %. Não é criado Major Incident: o ticket segue o fluxo normal.`, est:'Encaminhado à equipa responsável', cls:'warn'};
+  }
+  if (s.conf >= thr) return {key:'d_ok', txt:`Confiança de ${s.conf} % (mínimo ${thr} %). O agente virtual resolve com a base de conhecimento e o ticket pode ser fechado automaticamente.`, est:'Resolvido pelo agente virtual', cls:'ok'};
+  return {key:'d_baixa', txt:`Confiança de ${s.conf} %, abaixo do mínimo de ${thr} %. Em caso de dúvida, o pedido vai para um agente humano de 1.ª linha, que analisa e atribui o ticket.`, est:'Atribuído à 1.ª linha (humano)', cls:'warn'};
+}
+function hl(s){ document.querySelectorAll('.cell').forEach(c => c.classList.remove('hl')); const c = document.querySelector(`.cell[data-i="${s.i}"][data-u="${s.u}"]`); if (c) c.classList.add('hl'); }
+async function run(){
+  if (running) return; running = true; const my = ++token; $('run').disabled = true; $('demo').disabled = true;
+  const s = cur, dec = decide(s); reset(); hl(s);
+  const pri = matrix[s.u][s.i];
+  const effPri = dec.major ? 'P1' : pri;
+  for (const st of steps){
+    const el = $('s' + st.id);
+    if (!s.steps.includes(st.id)){ el.classList.add('skip'); continue; }
+    el.classList.add('active'); $('out').innerHTML = `<strong>${st.id}. ${st.name}</strong>` + (st.why ? `<br><span class="tag ai">IA</span> ${st.why}` : '');
+    if (st.id === 2) $('f-cli').textContent = s.cli;
+    if (st.id === 3) { $('f-res').textContent = s.res; $('f-sen').textContent = s.sen; }
+    if (st.id === 4) $('f-cat').textContent = s.cat;
+    if (st.id === 5) { $('f-iu').textContent = imp[s.i] + ' / ' + s.u; $('f-pri').textContent = effPri + ' ' + names[effPri]; $('f-est').textContent = 'Aberto'; }
+    if (st.id === 6) { $('out').innerHTML = `<strong>6. Decisão</strong><br>${dec.txt}`; $('f-est').textContent = dec.est; }
+    if (st.id === 8) $('out').innerHTML = `<strong>8. Notificações</strong><br>Prioridade ${effPri}: o cliente recebe atualizações automáticas ${cadence[effPri]}.`;
+    await say(st.id === 6 ? dec.key : 'p' + st.id, 1300);
+    el.classList.remove('active'); el.classList.add('done');
+  }
+  running = false; $('run').disabled = false; $('demo').disabled = false; return my;
+}
+$('run').addEventListener('click', run);
+$('demo').addEventListener('click', async () => { for (const s of scenarios){ choose(s, false); await say('sc_' + s.id, 700); await run(); await wait(1500); } $('out').textContent = 'Fim da demonstração. Experimenta mexer nos limiares e voltar a executar.'; say('fim', 0); });
+$('ai').addEventListener('click', e => { const on = document.body.classList.toggle('showai'); e.currentTarget.setAttribute('aria-pressed', on); if (on) say('ai_on', 0); });
+$('thr').addEventListener('input', e => $('tv').textContent = e.target.value);
+$('maj').addEventListener('input', e => $('mv').textContent = e.target.value);
+
+/* matriz */
+const mx = $('mx');
+mx.appendChild(Object.assign(document.createElement('div'), {className:'h', textContent:'Urgência \\ Impacto'}));
+imp.forEach(t => mx.appendChild(Object.assign(document.createElement('div'), {className:'h', textContent:t})));
+Object.keys(matrix).forEach(u => {
+  mx.appendChild(Object.assign(document.createElement('div'), {className:'h', textContent:u}));
+  matrix[u].forEach((p, i) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'cell ' + p.toLowerCase(); b.dataset.i = i; b.dataset.u = u;
+    b.textContent = p + ' ' + names[p];
+    b.addEventListener('click', () => { document.querySelectorAll('.cell').forEach(c => c.classList.remove('hl')); b.classList.add('hl');
+      $('cad').textContent = `${p} (${names[p]}): o cliente recebe notificações automáticas ${cadence[p]}.`; say('m_' + p, 0); });
+    mx.appendChild(b); });
+});
+
+/* simulação */
+$('sim').addEventListener('click', () => {
+  say('sim', 0);
+  const thr = +$('thr').value; let v = 0, h = 0;
+  for (let k = 0; k < 100; k++){
+    const r = Math.random();
+    if (r < 0.08) { h++; continue; }          // pede pessoa
+    if (r < 0.18) { h++; continue; }          // situação de risco
+    const conf = 40 + 60 * Math.sqrt(Math.random());
+    if (conf >= thr) v++; else h++;
+  }
+  $('bv').style.width = v + '%'; $('bv').textContent = v ? 'Agente virtual ' + v + ' %' : '';
+  $('bh').style.width = h + '%'; $('bh').textContent = h ? 'Pessoas ' + h + ' %' : '';
+  $('bv').style.background = 'var(--brand)';
+  $('simtxt').textContent = `Com confiança mínima de ${thr} %, o agente virtual tratou ${v} chamadas e as pessoas ${h}. A meta do grupo é cerca de 70/30. Sobe e baixa a confiança mínima para ver o efeito.`;
+});
+choose(scenarios[0]);
+</script>
+</body>
+</html>

@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<script src="acesso.js"></script>
+<!--
+CRÉDITOS E FONTES
+- Conteúdo da solução: Documento do Grupo 2, «Integração de IA em Call Centers, em Contexto Bancário» (TAIA, ISCTE, 2026/2027): ciclo da base de conhecimento, marcação «Requer Revisão» pela IA, validação humana, vertentes funcional e técnica. A meta de 85 % no top-3 é uma proposta do grupo.
+- Referencial ITIL: Prática de gestão do conhecimento: PeopleCert (2026, 27 de fevereiro). ITIL (Version 5): Built for the AI and Cloud Era. https://www.itil.com/Itil-News-and-Announcements/itil-version-5-ai-cloud-era
+- Conceito de recuperação (RAG): Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., Küttler, H., Lewis, M., Yih, W., Rocktäschel, T., Riedel, S., & Kiela, D. (2020). Retrieval-augmented generation for knowledge-intensive NLP tasks. Advances in Neural Information Processing Systems, 33.
+- Narração e legendas: Voz: síntese de voz do macOS (voz Joana, pt-PT). Textos das legendas escritos com o Claude.
+- Desenvolvimento: Textos e código gerados com o Claude (Anthropic, modelo Sonnet 5.5), através do Claude Code, e revistos pelo grupo.
+- Dados: Todos os dados, clientes, tickets e artigos são fictícios. As simulações usam valores aleatórios e não são resultados nem previsões.
+- Técnica: Sem bibliotecas externas. Letras do sistema e ícones em emojis do sistema.
+-->
+
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Base de Conhecimento</title>
+<style>
+:root{
+  --bg:#f3f5fb; --card:#ffffff; --ink:#101828; --muted:#667085; --line:#e4e7ee;
+  --brand:#2457f5; --brand2:#7a3cff; --ok:#12a150; --warn:#e08a00; --bad:#e0412f;
+  --shadow:0 12px 34px rgba(16,24,40,.08); --r:26px;
+}
+*{box-sizing:border-box}
+body{margin:0;color:var(--ink);font:18px/1.5 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:radial-gradient(1200px 520px at 85% -10%,#e5ddff 0,transparent 60%),radial-gradient(900px 480px at -5% 0,#dbe7ff 0,transparent 55%),var(--bg);min-height:100vh}
+button{font:inherit;cursor:pointer;border:0;border-radius:999px;padding:12px 22px;transition:transform .15s,box-shadow .2s,background .2s}
+button:hover:not(:disabled){transform:translateY(-1px)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible,label:focus-within{outline:3px solid #ffb703;outline-offset:3px}
+.primary{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;box-shadow:0 8px 20px rgba(36,87,245,.35)}
+.soft{background:#fff;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line)}
+.soft[aria-pressed="true"]{background:#efe9ff;box-shadow:inset 0 0 0 1.5px var(--brand2);color:#4b1fb8}
+.top{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;padding:26px 5vw 0}
+.brand{font-size:22px;font-weight:800;letter-spacing:-.02em}
+.brand small{display:block;font-weight:500;color:var(--muted);font-size:15px;letter-spacing:0}
+.tabs{display:flex;gap:6px;background:#fff;padding:6px;border-radius:999px;box-shadow:var(--shadow)}
+.tab{background:transparent;color:var(--muted);padding:10px 22px}
+.tab[aria-selected="true"]{background:var(--ink);color:#fff}
+main{padding:30px 5vw 90px}
+.panel[hidden]{display:none}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:34px}
+.center{max-width:980px;margin:0 auto}
+h2{font-size:34px;letter-spacing:-.02em;margin:0 0 6px;text-align:center}
+.lead{color:var(--muted);text-align:center;margin:0 0 30px;font-size:20px}
+/* ciclo */
+.tlwrap{overflow-x:auto;padding:0 4px}
+.tl{position:relative;display:grid;grid-template-columns:repeat(5,1fr);padding:10px 0 8px;margin-bottom:34px;min-width:720px}
+.tl-line{position:absolute;left:10%;right:10%;top:48px;height:6px;border-radius:6px;background:var(--line)}
+.tl-fill{height:100%;width:0;border-radius:6px;background:linear-gradient(90deg,var(--brand),var(--brand2));transition:width .9s cubic-bezier(.4,.1,.2,1);position:relative}
+.tl-fill::after{content:"";position:absolute;right:-9px;top:50%;width:18px;height:18px;margin-top:-9px;border-radius:50%;background:#fff;border:5px solid var(--brand2);box-shadow:0 0 0 8px rgba(122,60,255,.18)}
+.node{position:relative;text-align:center;opacity:.55;transition:all .45s;background:transparent;color:var(--ink);padding:0;border-radius:20px}
+.dot{width:76px;height:76px;margin:0 auto;border-radius:50%;background:#fff;box-shadow:0 8px 22px rgba(16,24,40,.12);display:grid;place-items:center;font-size:32px;transition:all .45s}
+.lab{margin-top:12px;font-weight:600;font-size:16px}
+.node.active{opacity:1}.node.active .dot{transform:scale(1.16);box-shadow:0 0 0 8px rgba(36,87,245,.16),0 12px 28px rgba(36,87,245,.35)}
+.node.done{opacity:1}.node.done .dot{background:#e8f8ef}
+.focus{display:flex;gap:26px;align-items:center;min-height:200px;max-width:900px;margin:0 auto}
+.fico{width:110px;height:110px;flex:none;border-radius:32px;background:linear-gradient(135deg,#eef2ff,#f1e9ff);display:grid;place-items:center;font-size:54px}
+.ftitle{font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
+.ftext{margin-top:10px;font-size:22px;color:var(--muted)}
+.ftag{display:none;margin-bottom:10px;font-size:14px;font-weight:700;background:#efe9ff;color:#4b1fb8;padding:3px 12px;border-radius:999px}
+.ftag.on{display:inline-block}
+.loop{color:var(--brand2);font-weight:700;margin-top:10px;display:none}.loop.on{display:block}
+.actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:34px}
+/* laboratório */
+.tks{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:26px}
+@media(max-width:900px){.tks{grid-template-columns:1fr}}
+.tk{text-align:left;background:#fff;color:var(--ink);border-radius:var(--r);box-shadow:var(--shadow);padding:22px 24px;border:2px solid transparent;font-size:18px;line-height:1.35}
+.tk small{display:block;color:var(--muted);margin-bottom:6px;font-weight:600}
+.tk.sel{border-color:var(--brand2);background:#f7f2ff}
+.lab2{display:grid;grid-template-columns:1.15fr 1fr;gap:26px}
+@media(max-width:900px){.lab2{grid-template-columns:1fr}}
+.tags{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.chip{display:inline-block;padding:3px 14px;border-radius:999px;font-weight:700;font-size:14px;background:var(--line)}
+.chip.ai{background:#efe9ff;color:#4b1fb8}.chip.warn{background:#ffe9c2;color:#8a5200}.chip.blue{background:#e4ebff;color:var(--brand)}.chip.ok{background:#d3f0dc;color:#0b6b36}
+.draft h3{margin:0 0 6px;font-size:24px;letter-spacing:-.01em}
+.draft .why{color:var(--muted);font-size:16px;margin:0 0 12px}
+.draft pre{white-space:pre-wrap;font:inherit;font-size:19px;margin:0;color:var(--ink)}
+.empty{color:var(--muted);text-align:center;padding:40px 0}
+.checks{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 18px}
+.chk{position:relative;display:inline-block}
+.chk input{position:absolute;opacity:0;inset:0;cursor:pointer}
+.chk span{display:inline-block;padding:10px 18px;border-radius:999px;background:#fff;box-shadow:inset 0 0 0 1.5px var(--line);font-weight:600;font-size:16px}
+.chk input:checked + span{background:#e8f8ef;box-shadow:inset 0 0 0 2px var(--ok);color:#0b6b36}
+.chk.missing span{background:#fde4e1;box-shadow:inset 0 0 0 2px var(--bad);color:#a02214}
+.seg{display:flex;gap:8px;margin-bottom:18px}
+.seg button{background:#fff;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line);padding:10px 20px}
+.seg button[aria-pressed="true"]{background:#eef2ff;box-shadow:inset 0 0 0 2px var(--brand);color:var(--brand)}
+.sub{color:var(--muted);font-weight:600;font-size:15px;margin:0 0 8px}
+.msg{min-height:30px;margin-top:14px;font-weight:600}.msg.bad{color:var(--bad)}.msg.ok{color:var(--ok)}
+.shake{animation:shake .4s}@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.kb{display:grid;gap:10px;margin-top:10px}
+.art{display:flex;justify-content:space-between;gap:12px;align-items:center;background:#fff;border-radius:18px;box-shadow:inset 0 0 0 1.5px var(--line);padding:14px 18px;animation:pop .5s}
+@keyframes pop{from{transform:scale(.94);opacity:0}to{transform:none;opacity:1}}
+.art small{color:var(--muted)}.art.hit{box-shadow:inset 0 0 0 2px var(--ok);background:#f1fbf5}.art.none{box-shadow:inset 0 0 0 2px var(--bad);background:#fff3f1}
+/* pesquisa */
+.sbar{display:flex;gap:12px;background:#fff;border-radius:999px;box-shadow:var(--shadow);padding:8px 8px 8px 26px;max-width:760px;margin:0 auto}
+.sbar input{flex:1;border:0;font:inherit;font-size:20px;outline:none;background:transparent;color:var(--ink);min-width:0}
+.chips{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:20px 0 34px}
+.chips button{background:#fff;color:var(--brand);box-shadow:inset 0 0 0 1.5px #c9d6ff;font-size:16px;padding:8px 18px}
+.cols{display:grid;grid-template-columns:1.4fr 1fr;gap:26px}
+@media(max-width:900px){.cols{grid-template-columns:1fr}}
+.gaps{font-size:64px;font-weight:800;line-height:1;color:var(--warn);letter-spacing:-.03em}
+.queue{list-style:none;padding:0;margin:16px 0 0;display:grid;gap:8px}
+.queue li{display:flex;justify-content:space-between;gap:10px;align-items:center;background:#fff8ea;border-radius:14px;padding:10px 14px;font-size:16px}
+.note{color:var(--muted);font-size:15px;margin-top:26px;text-align:center}
+.cap{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);width:min(920px,92vw);background:rgba(16,24,40,.92);color:#fff;border-radius:20px;padding:14px 22px;font-size:20px;line-height:1.4;z-index:10;text-align:center;backdrop-filter:blur(6px)}
+.cap[hidden]{display:none}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.cr{max-width:1100px;margin:30px auto 90px;padding:0 5vw;color:#667085;font:15px/1.5 -apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.cr summary{cursor:pointer;font-weight:700;color:#101828;padding:10px 0}
+.cr dl{display:grid;grid-template-columns:230px 1fr;gap:8px 18px;margin:8px 0}
+.cr dt{font-weight:700;color:#101828}.cr dd{margin:0}
+@media(max-width:700px){.cr dl{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">Base de conhecimento<small>Do procedimento ao artigo, e de volta à melhoria</small></div>
+  <nav class="tabs" role="tablist" aria-label="Secções">
+    <button class="tab" role="tab" data-t="ciclo" aria-selected="true">Ciclo</button>
+    <button class="tab" role="tab" data-t="lab" aria-selected="false">Laboratório</button>
+    <button class="tab" role="tab" data-t="pesq" aria-selected="false">Pesquisa</button>
+  </nav>
+  <button class="soft" id="narr" aria-pressed="false">🔊 Narração</button>
+</header>
+
+<main>
+<section class="panel" id="tab-ciclo" role="tabpanel">
+  <div class="tlwrap"><div class="tl" id="tl"><div class="tl-line"><div class="tl-fill" id="fill"></div></div></div></div>
+  <div class="card focus" aria-live="polite">
+    <div class="fico" id="fico">📚</div>
+    <div><span class="ftag" id="ftag">IA atua aqui</span><div class="ftitle" id="ftitle"></div><div class="ftext" id="ftext"></div><div class="loop" id="loop">↻ Volta à etapa 2: o ciclo continua.</div></div>
+  </div>
+  <div class="actions">
+    <button class="soft" id="prev">◀ Anterior</button>
+    <button class="primary" id="play">▶ Reproduzir</button>
+    <button class="soft" id="next">Seguinte ▶</button>
+  </div>
+</section>
+
+<section class="panel" id="tab-lab" role="tabpanel" hidden>
+  <h2>Do ticket ao artigo</h2>
+  <p class="lead">Escolhe um ticket resolvido. A IA propõe, só uma pessoa publica.</p>
+  <div class="tks" id="tks"></div>
+  <div class="lab2">
+    <div class="card draft" id="draft"><div class="empty">Escolhe um ticket para ver o rascunho.</div></div>
+    <div class="card">
+      <p class="sub">Validação humana</p>
+      <div class="checks" id="checks"></div>
+      <p class="sub">Vertente</p>
+      <div class="seg" id="seg"><button type="button" data-v="funcional" aria-pressed="false">Funcional</button><button type="button" data-v="técnica" aria-pressed="false">Técnica</button></div>
+      <button class="primary" id="pub" disabled>Publicar artigo</button>
+      <div class="msg" id="labmsg" role="status" aria-live="polite"></div>
+    </div>
+  </div>
+  <p class="sub" style="margin-top:30px">Base publicada</p>
+  <div class="kb" id="kb"></div>
+</section>
+
+<section class="panel" id="tab-pesq" role="tabpanel" hidden>
+  <div class="center">
+    <h2>O agente virtual pesquisa</h2>
+    <p class="lead">Sem artigo, não há resposta inventada: a lacuna volta ao ciclo.</p>
+    <div class="sbar"><input type="text" id="q" placeholder="Ex.: o cartão ficou bloqueado" aria-label="Pergunta do cliente"><button class="primary" id="go">Pesquisar</button></div>
+    <div class="chips" id="chips"></div>
+    <div class="cols">
+      <div><p class="sub">Resultados</p><div class="kb" id="res" aria-live="polite"></div></div>
+      <div class="card"><p class="sub">Lacunas detetadas</p><div class="gaps" id="gaps">0</div><ul class="queue" id="queue"></ul></div>
+    </div>
+    <p class="note">Meta proposta pelo grupo: artigo correto no top-3 em pelo menos 85 % de um conjunto de teste. É uma meta, e não um resultado. Todos os dados são fictícios.</p>
+  </div>
+</section>
+</main>
+<div class="cap" id="cap" hidden role="status" aria-live="polite"></div>
+
+<section class="cr" aria-label="Créditos e fontes">
+  <details>
+  <summary>Créditos e fontes</summary>
+  <dl>
+    <dt>Conteúdo da solução</dt><dd>Documento do Grupo 2, «Integração de IA em Call Centers, em Contexto Bancário» (TAIA, ISCTE, 2026/2027): ciclo da base de conhecimento, marcação «Requer Revisão» pela IA, validação humana, vertentes funcional e técnica. A meta de 85 % no top-3 é uma proposta do grupo.</dd>
+    <dt>Referencial ITIL</dt><dd>Prática de gestão do conhecimento: PeopleCert (2026, 27 de fevereiro). ITIL (Version 5): Built for the AI and Cloud Era. https://www.itil.com/Itil-News-and-Announcements/itil-version-5-ai-cloud-era</dd>
+    <dt>Conceito de recuperação (RAG)</dt><dd>Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., Küttler, H., Lewis, M., Yih, W., Rocktäschel, T., Riedel, S., &amp; Kiela, D. (2020). Retrieval-augmented generation for knowledge-intensive NLP tasks. Advances in Neural Information Processing Systems, 33.</dd>
+    <dt>Narração e legendas</dt><dd>Voz: síntese de voz do macOS (voz Joana, pt-PT). Textos das legendas escritos com o Claude.</dd>
+    <dt>Desenvolvimento</dt><dd>Textos e código gerados com o Claude (Anthropic, modelo Sonnet 5.5), através do Claude Code, e revistos pelo grupo.</dd>
+    <dt>Dados</dt><dd>Todos os dados, clientes, tickets e artigos são fictícios. As simulações usam valores aleatórios e não são resultados nem previsões.</dd>
+    <dt>Técnica</dt><dd>Sem bibliotecas externas. Letras do sistema e ícones em emojis do sistema.</dd>
+  </dl>
+  </details>
+</section>
+<script>
+const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = id => document.getElementById(id);
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+
+/* ---------- narração (voz gravada em audio/kb + legendas) ---------- */
+const NARR = {
+  intro: 'Vamos ver como se constrói a base de conhecimento do agente virtual: do procedimento interno ao artigo publicado, e do artigo de volta à melhoria.',
+  s1: 'Primeira etapa, as fontes. A base é construída a partir dos procedimentos internos, do catálogo de serviços e do histórico de tickets.',
+  s2: 'Segunda etapa. A inteligência artificial identifica possíveis novos artigos e marca-os com a indicação requer revisão, com um comentário do que sugere acrescentar ou alterar.',
+  s3: 'Terceira etapa, a validação humana. Nenhum artigo é publicado sem a validação de uma pessoa. Cada artigo tem dono, fonte, versão e validade.',
+  s4: 'Quarta etapa, a publicação, em duas vertentes. A funcional, para o agente virtual e a primeira linha, e a técnica, para a segunda e a terceira linha.',
+  s5: 'Quinta etapa, utilização e melhoria. O agente virtual consulta os artigos. O feedback e as pesquisas sem resultado revelam lacunas, que voltam à segunda etapa, e o ciclo continua.',
+  lab_pick: 'A inteligência artificial leu o ticket e propôs um rascunho de artigo, marcado como requer revisão. Falta a validação humana.',
+  lab_blocked: 'O artigo não pode ser publicado enquanto faltar alguma validação. É assim que se evita publicar conteúdo sem dono, sem fonte ou desatualizado.',
+  lab_ok: 'Artigo publicado. A partir de agora, o agente virtual já o pode usar nas respostas.',
+  hit: 'O agente virtual encontrou artigos validados e responde com base neles, indicando a fonte.',
+  gap: 'Não existe artigo para esta pergunta. O agente virtual não inventa a resposta: encaminha para uma pessoa, e a lacuna fica registada para voltar ao ciclo.'
+};
+let narrOn = false, curAudio = null, curDone = null, playing = false, loopId = 0;
+const cap = $('cap');
+function stopNarr(){
+  if (curAudio){ curAudio.pause(); curAudio = null; }
+  if (curDone){ const d = curDone; curDone = null; d(); }
+  cap.hidden = true;
+}
+function say(id, ms){
+  stopNarr();
+  const text = NARR[id];
+  if (!narrOn || !text) return new Promise(r => setTimeout(r, reduce ? 0 : ms));
+  cap.textContent = text; cap.hidden = false;
+  return new Promise(res => {
+    const a = new Audio('audio/kb/' + id + '.m4a'); curAudio = a;
+    let fin = false, tm = null;
+    const done = () => { if (fin) return; fin = true; clearTimeout(tm); if (curDone === done) curDone = null; setTimeout(res, reduce ? 0 : 350); };
+    curDone = done;
+    const fall = Math.max(2500, text.length * 60);
+    tm = setTimeout(done, 60000);
+    a.addEventListener('ended', done);
+    a.addEventListener('error', () => setTimeout(done, fall));
+    a.play().catch(() => setTimeout(done, fall));
+  });
+}
+$('narr').addEventListener('click', e => {
+  narrOn = !narrOn; e.currentTarget.setAttribute('aria-pressed', narrOn);
+  if (narrOn) say('intro', 0); else stopNarr();
+});
+
+/* ---------- separadores ---------- */
+function show(id){
+  ['ciclo','lab','pesq'].forEach(k => { $('tab-' + k).hidden = k !== id; document.querySelector(`.tab[data-t="${k}"]`).setAttribute('aria-selected', k === id); });
+}
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => show(t.dataset.t)));
+
+/* ---------- 1. ciclo ---------- */
+const stages = [
+  {i:'📚', lab:'Fontes',     t:'Fontes',               d:'Procedimentos, catálogo de serviços e histórico de tickets.', ai:false},
+  {i:'🤖', lab:'IA deteta',  t:'A IA deteta',          d:'Propõe artigos novos e marca «Requer Revisão».', ai:true},
+  {i:'✅', lab:'Validação',  t:'Validação humana',     d:'Sem validação de uma pessoa, nada é publicado.', ai:false},
+  {i:'🗂️', lab:'Publicação', t:'Publicação',           d:'Vertente funcional e vertente técnica.', ai:false},
+  {i:'📈', lab:'Melhoria',   t:'Utilização e melhoria', d:'Lacunas e feedback voltam à etapa 2.', ai:false}
+];
+let cur = 0;
+const tl = $('tl');
+stages.forEach((s, k) => {
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'node'; b.id = 'n' + k;
+  b.innerHTML = `<div class="dot">${s.i}</div><div class="lab">${s.lab}</div>`;
+  b.addEventListener('click', () => { stop(); setStage(k); say('s' + (cur + 1), 0); });
+  tl.appendChild(b);
+});
+function setStage(k){
+  cur = (k + stages.length) % stages.length;
+  stages.forEach((s, j) => { const n = $('n' + j); n.classList.toggle('active', j === cur); n.classList.toggle('done', j < cur); });
+  $('fill').style.width = (cur / (stages.length - 1) * 100) + '%';
+  const s = stages[cur];
+  $('fico').textContent = s.i; $('ftitle').textContent = (cur + 1) + '. ' + s.t; $('ftext').textContent = s.d;
+  $('ftag').classList.toggle('on', s.ai); $('loop').classList.toggle('on', cur === stages.length - 1);
+}
+async function play(){
+  playing = true; const me = ++loopId; $('play').textContent = '⏸ Pausar';
+  while (playing && me === loopId){
+    await say('s' + (cur + 1), 4000);
+    if (!playing || me !== loopId) break;
+    setStage(cur + 1);
+  }
+}
+function stop(){ playing = false; loopId++; stopNarr(); $('play').textContent = '▶ Reproduzir'; }
+$('play').addEventListener('click', () => playing ? stop() : play());
+$('prev').addEventListener('click', () => { stop(); setStage(cur - 1); say('s' + (cur + 1), 0); });
+$('next').addEventListener('click', () => { stop(); setStage(cur + 1); say('s' + (cur + 1), 0); });
+setStage(0);
+
+/* ---------- 2. laboratório ---------- */
+const tk = [
+  {id:'T-101', t:'Sem acesso ao homebanking depois de trocar de telemóvel', art:'Reativar o acesso ao homebanking', v:'funcional',
+   key:['homebanking','acesso','entrar','telemovel','dispositivo','novo','reativar','login'],
+   txt:'1. Confirmar a identidade\n2. Registar o novo dispositivo\n3. Se falhar, abrir pedido à equipa de acessos', com:'Problema repetido, sem artigo.'},
+  {id:'T-102', t:'Cartão bloqueado depois de três PINs errados', art:'Desbloquear cartão após PIN errado', v:'funcional',
+   key:['cartao','multibanco','pin','bloqueado','desbloquear','errado'],
+   txt:'1. Confirmar a identidade e o cartão\n2. Explicar o prazo de desbloqueio\n3. Suspeita de fraude: escalar já', com:'Pedido frequente e de baixo risco.'},
+  {id:'T-103', t:'Saldos desalinhados entre a app e o sistema central', art:'Diagnóstico de falha de sincronização de saldos', v:'técnica',
+   key:['saldo','saldos','sincronizacao','app','core','falha','diagnostico'],
+   txt:'1. Verificar as filas de integração\n2. Comparar os saldos nos dois sistemas\n3. Registar problema e change request', com:'Útil só para a 2.ª e 3.ª linha.'}
+];
+const items = ['Dono','Fonte','Versão','Validade','Sem dados pessoais'];
+const kb = [
+  {t:'Horários e contactos da agência', v:'funcional', key:['horario','horarios','agencia','abre','fecha','contacto','contactos','telefone'], fonte:'Procedimento interno'},
+  {t:'Pedir segunda via de extrato', v:'funcional', key:['extrato','segunda','via','pedir','documento'], fonte:'Catálogo de serviços'},
+  {t:'Atualização de dados pessoais', v:'funcional', key:['atualizar','dados','morada','telemovel','email','pessoais'], fonte:'Catálogo de serviços'}
+];
+let sel = null, vert = '', typing = null;
+const tbox = $('tks');
+tk.forEach((x, k) => {
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'tk';
+  b.innerHTML = `<small>${x.id} · resolvido</small>${x.t}`;
+  b.addEventListener('click', () => pick(k, b)); tbox.appendChild(b);
+});
+const cbox = $('checks');
+items.forEach((s, k) => {
+  const l = document.createElement('label'); l.className = 'chk'; l.innerHTML = `<input type="checkbox" data-k="${k}"><span>${s}</span>`;
+  cbox.appendChild(l);
+});
+document.querySelectorAll('#seg button').forEach(b => b.addEventListener('click', () => {
+  vert = b.dataset.v; document.querySelectorAll('#seg button').forEach(o => o.setAttribute('aria-pressed', o === b));
+}));
+function typeInto(el, text){
+  clearInterval(typing);
+  if (reduce){ el.textContent = text; return; }
+  el.textContent = ''; let p = 0;
+  typing = setInterval(() => { el.textContent = text.slice(0, ++p); if (p >= text.length) clearInterval(typing); }, 14);
+}
+function setMsg(t, c){ const m = $('labmsg'); m.textContent = t; m.className = 'msg ' + c; }
+function pick(k, btn){
+  sel = k;
+  [...tbox.children].forEach(c => c.classList.toggle('sel', c === btn));
+  const x = tk[k];
+  $('draft').innerHTML = `<div class="tags"><span class="chip ai">🤖 Proposto pela IA</span><span class="chip warn">Requer Revisão</span></div><h3>${x.art}</h3><p class="why">${x.com}</p><pre id="pre"></pre>`;
+  typeInto($('pre'), x.txt);
+  cbox.querySelectorAll('input').forEach(i => { i.checked = false; i.parentElement.classList.remove('missing'); });
+  vert = ''; document.querySelectorAll('#seg button').forEach(o => o.setAttribute('aria-pressed', false));
+  $('pub').disabled = false; setMsg('', '');
+  say('lab_pick', 0);
+}
+function renderKb(el, list, hit){
+  el.innerHTML = '';
+  list.forEach(a => {
+    const d = document.createElement('div'); d.className = 'art' + (hit ? ' hit' : '');
+    d.innerHTML = `<span><strong>${a.t}</strong><br><small>${a.fonte}${a.ver ? ' · ' + a.ver : ''}</small></span><span class="chip ${a.v === 'técnica' ? 'warn' : 'blue'}">${a.v}</span>`;
+    el.appendChild(d);
+  });
+}
+renderKb($('kb'), kb, false);
+$('pub').addEventListener('click', () => {
+  if (sel === null) return;
+  const x = tk[sel], miss = [];
+  cbox.querySelectorAll('input').forEach(i => { const bad = !i.checked; i.parentElement.classList.toggle('missing', bad); if (bad) miss.push(items[+i.dataset.k]); });
+  if (!vert) miss.push('Vertente');
+  if (miss.length){
+    setMsg('Não pode ser publicado. Falta: ' + miss.join(', ') + '.', 'bad');
+    $('pub').classList.remove('shake'); void $('pub').offsetWidth; $('pub').classList.add('shake'); say('lab_blocked', 0); return;
+  }
+  if (kb.some(a => a.t === x.art)){ setMsg('Este artigo já está publicado.', 'bad'); return; }
+  kb.push({t:x.art, v:vert, key:x.key, fonte:'Ticket ' + x.id, ver:'v1.0'});
+  renderKb($('kb'), kb, false);
+  setMsg('Publicado na vertente ' + vert + '. O agente virtual já o pode usar.', 'ok');
+  say('lab_ok', 0);
+});
+
+/* ---------- 3. pesquisa ---------- */
+const gaps = [];
+['Qual é o horário da agência?', 'O cartão ficou bloqueado', 'Não consigo entrar no homebanking', 'Preciso da segunda via do extrato'].forEach(c => {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = c;
+  b.addEventListener('click', () => { $('q').value = c; search(); }); $('chips').appendChild(b);
+});
+function search(){
+  const q = $('q').value.trim(); if (!q) return;
+  const toks = norm(q).split(/[^a-z0-9]+/).filter(w => w.length > 2);
+  const scored = kb.map(a => ({a, s: a.key.filter(k => toks.includes(k)).length})).filter(r => r.s > 0).sort((x, y) => y.s - x.s).slice(0, 3);
+  const res = $('res');
+  if (scored.length){ renderKb(res, scored.map(r => r.a), true); say('hit', 0); }
+  else {
+    say('gap', 0);
+    res.innerHTML = '<div class="art none"><span><strong>Sem artigo para esta pergunta.</strong><br><small>O agente virtual encaminha para uma pessoa.</small></span></div>';
+    if (!gaps.includes(q)){ gaps.push(q); $('gaps').textContent = gaps.length;
+      const li = document.createElement('li'); li.innerHTML = `<span>${q.replace(/</g, '&lt;')}</span><span class="chip warn">Requer Revisão</span>`; $('queue').appendChild(li); }
+  }
+}
+$('go').addEventListener('click', search);
+$('q').addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
+</script>
+</body>
+</html>
