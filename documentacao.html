@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pt-PT"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<script src="acesso.js"></script>
+<title>Documentação</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;color:#101828;font:18px/1.5 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:radial-gradient(1200px 520px at 85% -10%,#e5ddff 0,transparent 60%),radial-gradient(900px 480px at -5% 0,#dbe7ff 0,transparent 55%),#f3f5fb}
+main{max-width:1100px;margin:0 auto;padding:44px 5vw 80px}
+h1{font-size:clamp(30px,5vw,46px);letter-spacing:-.03em;line-height:1.1;margin:0 0 10px}
+.lead{color:#667085;font-size:20px;margin:0 0 30px;max-width:62ch}
+.back{display:inline-block;margin-bottom:22px;color:#2457f5;text-decoration:none;font-weight:600}
+.badge{display:inline-block;background:#fff3d6;color:#8a5200;border-radius:999px;padding:4px 14px;font-weight:700;font-size:14px;margin-bottom:14px}
+figure{margin:0 0 30px;background:#fff;border-radius:26px;box-shadow:0 12px 34px rgba(16,24,40,.08);padding:18px}
+figure a{display:block}
+figure img{display:block;width:100%;height:auto;border-radius:16px}
+figcaption{margin-top:14px;color:#667085;font-size:15px}
+.card2{background:#fff;border-radius:26px;box-shadow:0 12px 34px rgba(16,24,40,.08);padding:26px 30px}
+.card2 h2{margin:0 0 10px;font-size:22px}.card2 ul{margin:0;padding-left:22px}.card2 li{margin:6px 0}
+.cr{margin-top:36px;color:#667085;font-size:14px}
+a:focus-visible{outline:3px solid #ffb703;outline-offset:3px}
+</style></head>
+<body><main>
+<a class="back" href="index.html">← Voltar ao início</a><br>
+<span class="badge">Dados fictícios · material de apoio à apresentação</span>
+<h1>Documentação</h1>
+<p class="lead">O fluxo de atendimento proposto, numa só imagem: da chamada do cliente à resolução do ticket.</p>
+<figure>
+  <a href="imagens/fluxo_atendimento_ia.jpeg" target="_blank" rel="noopener" title="Abrir em tamanho real">
+    <img src="imagens/fluxo_atendimento_ia.jpeg" width="1600" height="1480" alt="Diagrama «Da chamada telefónica à resolução»: o cliente liga e fala com um agente virtual de IA, que identifica o cliente, compreende o pedido, consulta a base de conhecimento e cria o ticket. Se o pedido for resolvido, o ticket fecha-se e o cliente responde a um inquérito de satisfação. Se não, passa a um agente humano de 1.ª linha ou às equipas especializadas, e o cliente recebe atualizações de estado por prioridade. Em baixo, as práticas ITIL (conhecimento, Major Incident, problema, mudança e dashboards), os benefícios esperados e as salvaguardas.">
+  </a>
+  <figcaption><strong>Da chamada telefónica à resolução.</strong> Workflow proposto com IA para um call center bancário. Imagem do Grupo 2. Clicar para abrir em tamanho real.</figcaption>
+</figure>
+<div class="card2">
+  <h2>O que a imagem mostra</h2>
+  <ul>
+    <li><strong>Durante a chamada:</strong> o agente virtual de IA identifica o cliente, compreende o pedido, consulta a base de conhecimento aprovada e cria o ticket com resumo, categoria e prioridade.</li>
+    <li><strong>Resolvido ou não:</strong> se a necessidade for satisfeita, o ticket fecha-se. Caso contrário, passa a um agente humano de 1.ª linha ou às equipas especializadas de 2.ª e 3.ª linha, com o ticket já preenchido.</li>
+    <li><strong>Fecho e seguimento:</strong> inquérito de satisfação de 1 a 5 e atualizações de estado ao cliente, com frequência por prioridade (P1 a cada hora, P2 a cada 4 horas, P3 a cada 24 horas e P4 a cada 48 horas).</li>
+    <li><strong>Nos bastidores:</strong> práticas ITIL em cada ticket (conhecimento, Major Incident, problema, mudança e dashboards), com a divisão-alvo de cerca de 70 % das chamadas para o agente virtual e 30 % para pessoas.</li>
+    <li><strong>Benefícios esperados e salvaguardas:</strong> custos mais baixos, atendimento mais rápido e consistente, maior satisfação e equipas mais eficientes; dados pessoais conforme o RGPD, resiliência operacional (DORA), o cliente sabe que fala com uma IA e há intervenção humana a qualquer momento.</li>
+  </ul>
+</div>
+<p class="cr">Grupo 2 · Trabalho Académico com Inteligência Artificial · ISCTE. Os benefícios e as metas são propostas do grupo e não resultados medidos num banco.</p>
+</main></body></html>
